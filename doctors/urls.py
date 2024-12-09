@@ -12,9 +12,11 @@ from .views import (
 )
 from rest_framework.routers import DefaultRouter
 from .viewsets import DoctorViewSet
+from .viewsets import RegisterUserView
 
 router = DefaultRouter()
 router.register('doctors', DoctorViewSet)
+
 
 urlpatterns = [
     path('departments/', ListDepartmentView.as_view()),
@@ -23,4 +25,5 @@ urlpatterns = [
     path('doctoravailabilities/<int:id>/', DetailDoctorAvailabilityView.as_view()),
     path('medicalnotes/', ListMedicalNoteView.as_view()),
     path('medicalnotes/<int:id>/', DetailMedicalNoteView.as_view()),
+    path('register/', RegisterUserView.as_view(), name='register'),
 ] + router.urls
