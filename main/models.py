@@ -142,6 +142,9 @@ class tabla_pagos(models.Model):
     fecha_pago = models.DateTimeField(null=False)
     monto_pago = models.IntegerField(null=False)
 
+    def __str__(self):
+        return self.nombre
+
 
 class tabla_solicitudes(models.Model):
     cedula_responsable = models.ForeignKey(

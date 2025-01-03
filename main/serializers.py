@@ -16,6 +16,8 @@ class UserSerializer(serializers.ModelSerializer):
     
 class DatosBasicosSerializer(serializers.ModelSerializer):
     """serializer"""
+
+    
     class Meta:
         model = models.Datos_basicos
         fields = '__all__'
