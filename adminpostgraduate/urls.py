@@ -16,19 +16,24 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
-from rest_framework_simplejwt.views import (
-    TokenObtainPairView,
-    TokenRefreshView,
-    TokenVerifyView
+from rest_framework_simplejwt.views import (TokenObtainPairView, TokenRefreshView, TokenVerifyView
 )
-from .views import RegisterUserView
+#from .views import RegisterUserView
 
+'''
+http://127.0.0.1:8000/ se le agrega a que enlace 
+se quiere acceder, este .py se uso al inicio de la app
+pero luego se creo main y ahí se continuo haciendo
+lo demas. 
 
+ejmp:
+http://127.0.0.1:8000/admin/
+'''
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('main.urls')),
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/token/verify/', TokenVerifyView.as_view(), name='token_verify'),
-    path('register/', RegisterUserView.as_view(), name='register'),
+    #path('register/', RegisterUserView.as_view(), name='register'),
 ]

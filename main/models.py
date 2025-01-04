@@ -1,5 +1,12 @@
-from django.db import models
+'''
+Modelos: define la estructura de los datos de una carga. 
+Los modelos se pueden utilizar para: 
+- Validar solicitudes de manera básica
+- Crear plantillas de mapeo para transformar datos
+- Generar un tipo de datos definido por el usuario (UDT) al crear un SDK
+'''
 
+from django.db import models
 
 class Datos_basicos(models.Model):
     cedula = models.TextField(primary_key=True)  # CEDULA = PRIMARY KEY
@@ -8,15 +15,14 @@ class Datos_basicos(models.Model):
     tipo_usuario = models.IntegerField(null=False)
     contraseña = models.TextField(null=False)
 
+    def __str__(self):
+        return f"{self.nombre} {self.apellido}"
 
 class datos_maestria(models.Model):
     cod_maestria = models.IntegerField(primary_key=True)
     nombre_maestria = models.TextField(null=False)
 
-
-
 class estudiante_datos(models.Model):
-
     cedula_estudiante = models.ForeignKey(
         Datos_basicos,
         on_delete=models.CASCADE,
@@ -50,7 +56,6 @@ class roles(models.Model):
 
 
 class datos_login(models.Model):
-
     cedula_usuario = models.ForeignKey(
         Datos_basicos,
         on_delete=models.CASCADE,
@@ -59,7 +64,6 @@ class datos_login(models.Model):
     )  # CLAVE FORANEA
 
     contraseña_usuario = models.TextField(null=False)
-
     tipo_usuario = models.ForeignKey(
         roles, on_delete=models.CASCADE, to_field="codigo_rol", db_column="tipo_usuario"
     )  # CLAVE FORANEA
@@ -67,7 +71,6 @@ class datos_login(models.Model):
 
 class materias_pensum(models.Model):
     cod_materia = models.TextField(primary_key=True)
-
     cod_maestria = models.ForeignKey(
         datos_maestria,
         on_delete=models.CASCADE,
@@ -78,9 +81,7 @@ class materias_pensum(models.Model):
     nombre_materia = models.TextField(null=False)
     profesor_materia = models.TextField(null=False)
 
-
 class listado_estudiantes(models.Model):
-
     cedula_estudiante = models.ForeignKey(
         Datos_basicos,
         on_delete=models.CASCADE,
@@ -106,10 +107,8 @@ class listado_estudiantes(models.Model):
     )  # CLAVE FORANEA
 
     nombre_materia = models.TextField(null=False)
-
     profesor_ci = models.TextField(null=False)
     nombre_profesor_ci = models.TextField(null=False)
-
 
 class profesores(models.Model):
     ci_profesor = models.ForeignKey(
@@ -120,14 +119,12 @@ class profesores(models.Model):
     )  # CLAVE FORANEA
 
     profesor = models.TextField(null=False)
-
     cod_maestria_prof = models.ForeignKey(
         datos_maestria,
         on_delete=models.CASCADE,
         to_field="cod_maestria",
         db_column="cod_maestria_prof",
     )  # CLAVE FORANEA
-
 
 class tabla_pagos(models.Model):
     cedula_responsable = models.ForeignKey(
@@ -144,7 +141,6 @@ class tabla_pagos(models.Model):
 
     def __str__(self):
         return self.nombre
-
 
 class tabla_solicitudes(models.Model):
     cedula_responsable = models.ForeignKey(

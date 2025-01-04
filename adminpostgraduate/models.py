@@ -1,8 +1,15 @@
+'''
+Modelos: define la estructura de los datos de una carga. 
+Los modelos se pueden utilizar para: 
+- Validar solicitudes de manera básica
+- Crear plantillas de mapeo para transformar datos
+- Generar un tipo de datos definido por el usuario (UDT) al crear un SDK
+'''
+
 from django.db import models
 
 class Datos_basicos(models.Model):
     cedula = models.TextField(primary_key=True) # CEDULA = PRIMARY KEY
-
     nombre = models.TextField(null=False)
     apellido = models.TextField(null=False)
     tipo_usuario = models.IntegerField(null=False)
@@ -13,7 +20,6 @@ class datos_maestria(models.Model):
     nombre_maestria = models.TextField(null=False)
 
 class estudiante_datos(models.Model):
-
     cedula_estudiante = models.ForeignKey(Datos_basicos, 
     on_delete=models.CASCADE, to_field='cedula', db_column ='cedula_estudiante')  # CLAVE FORANEA
 
@@ -24,7 +30,6 @@ class estudiante_datos(models.Model):
     status = models.BooleanField(null=False)
     carrera = models.TextField(null=False)
     
-
 class Cohorte(models.Model):
     codigo_cohorte = models.TextField(primary_key=True)
     fecha_inicio = models.DateTimeField(null=False)
@@ -37,24 +42,21 @@ class roles(models.Model):
     nombre_rol = models.TextField(null=False)
 
 class datos_login(models.Model):
-
     cedula_usuario = models.ForeignKey(Datos_basicos, 
     on_delete=models.CASCADE, to_field='cedula', db_column ='cedula_usuario')  # CLAVE FORANEA
-    
-    contraseña_usuario = models.TextField(null=False)
 
     tipo_usuario = models.ForeignKey(roles, 
-    on_delete=models.CASCADE, to_field='codigo_rol', db_column ='tipo_usuario')  # CLAVE FORANEA
-    
+    on_delete=models.CASCADE, to_field='codigo_rol', db_column ='tipo_usuario')  # CLAVE FORANEA    
+
+    contraseña_usuario = models.TextField(null=False)
+
 class materias_pensum(models.Model):
     cod_materia = models.TextField(primary_key=True)
-    
-    cod_maestria = models.ForeignKey(datos_maestria, 
-    on_delete=models.CASCADE, to_field='cod_maestria', db_column ='cod_maestria')  # CLAVE FORANEA
-
     nombre_materia = models.TextField(null=False)
     profesor_materia = models.TextField(null=False)
 
+    cod_maestria = models.ForeignKey(datos_maestria, 
+    on_delete=models.CASCADE, to_field='cod_maestria', db_column ='cod_maestria')  # CLAVE FORANEA
 
 class listado_estudiantes(models.Model):
 
@@ -74,7 +76,6 @@ class listado_estudiantes(models.Model):
     
     profesor_ci = models.TextField(null=False)
     nombre_profesor_ci = models.TextField(null=False)
-
 
 
 class profesores(models.Model):
@@ -106,4 +107,3 @@ class tabla_solicitudes(models.Model):
     fecha_solicitud = models.DateTimeField(null=False)
     status_solicitud = models.TextField(null=False)
     tipo_solicitud = models.TextField(null=False)
-
