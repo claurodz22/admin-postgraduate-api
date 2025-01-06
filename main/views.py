@@ -24,6 +24,23 @@ class RegisterUserView(views.APIView):
 
 '''
 Vista correspondiente a solicitar los
+datos de las solicitudes a la BDD para que se los muestre
+al administrador en una lista
+'''
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from .models import tabla_solicitudes
+from .serializers import TablaSolicitudesSerializer
+
+class SolicitudesListAPIView(APIView):
+    def get(self, request):
+        solicitudes = tabla_solicitudes.objects.all()  
+        serializer = TablaSolicitudesSerializer(solicitudes, many=True)
+        return Response(serializer.data)
+
+'''
+Vista correspondiente a solicitar los
 datos de los pagos a la BDD para que se los muestre
 al administrador en una lista
 '''

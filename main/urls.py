@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import PagosListAPIView, DatosBasicosCreateView, admin_login 
+from .views import PagosListAPIView, DatosBasicosCreateView, admin_login, SolicitudesListAPIView
 from . import views
 
 '''
@@ -16,6 +16,7 @@ con metodo get es el de pagos (esto con objetivo de ver si se hacia
 la conexión de la bdd al front)
 '''
 urlpatterns = [
+    path('solicitudes/', SolicitudesListAPIView.as_view(), name='solicitudes-list'),
     path('admin-login/', admin_login, name='admin-login'),
     path('pagos/', PagosListAPIView.as_view(), name='pagos-list'),  
     path('datosbasicos/', views.DatosBasicosCreateView.as_view(), name='agregar_usuario')

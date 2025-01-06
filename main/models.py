@@ -47,7 +47,7 @@ class Cohorte(models.Model):
     fecha_inicio = models.DateTimeField(null=False)
     fecha_fin = models.DateTimeField(null=False)
     sede_cohorte = models.TextField(null=False)
-    profesor_cohorte = models.TextField(null=False)
+    
 
 
 class roles(models.Model):
@@ -79,7 +79,8 @@ class materias_pensum(models.Model):
     )  # CLAVE FORANEA
 
     nombre_materia = models.TextField(null=False)
-    profesor_materia = models.TextField(null=False)
+    nom_profesor_materia = models.TextField(blank=True,null=True)
+    ape_profesor_materia = models.TextField(blank=True,null=True)
 
 class listado_estudiantes(models.Model):
     cedula_estudiante = models.ForeignKey(
@@ -108,7 +109,8 @@ class listado_estudiantes(models.Model):
 
     nombre_materia = models.TextField(null=False)
     profesor_ci = models.TextField(null=False)
-    nombre_profesor_ci = models.TextField(null=False)
+    nom_profesor_materia = models.TextField(blank=True,null=True)
+    ape_profesor_materia = models.TextField(blank=True,null=True)
 
 class profesores(models.Model):
     ci_profesor = models.ForeignKey(
@@ -118,7 +120,8 @@ class profesores(models.Model):
         db_column="ci_profesor",
     )  # CLAVE FORANEA
 
-    profesor = models.TextField(null=False)
+    nom_profesor_materia = models.TextField(blank=True,null=True)
+    ape_profesor_materia = models.TextField(blank=True,null=True)
     cod_maestria_prof = models.ForeignKey(
         datos_maestria,
         on_delete=models.CASCADE,
@@ -138,6 +141,8 @@ class tabla_pagos(models.Model):
     banco_pago = models.TextField(null=False)
     fecha_pago = models.DateTimeField(null=False)
     monto_pago = models.IntegerField(null=False)
+    nombre_estudiante = models.TextField(blank=True,null=True)
+    apellido_estudiante = models.TextField(blank=True,null=True)
 
     def __str__(self):
         return self.nombre

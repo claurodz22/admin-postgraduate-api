@@ -35,8 +35,7 @@ class Cohorte(models.Model):
     fecha_inicio = models.DateTimeField(null=False)
     fecha_fin = models.DateTimeField(null=  False)
     sede_cohorte = models.TextField(null=False)
-    profesor_cohorte = models.TextField(null=False)
-    
+        
 class roles(models.Model):
     codigo_rol = models.IntegerField(primary_key=True)
     nombre_rol = models.TextField(null=False)
@@ -53,7 +52,8 @@ class datos_login(models.Model):
 class materias_pensum(models.Model):
     cod_materia = models.TextField(primary_key=True)
     nombre_materia = models.TextField(null=False)
-    profesor_materia = models.TextField(null=False)
+    nom_profesor_materia = models.TextField(blank=True,null=True)
+    ape_profesor_materia = models.TextField(blank=True,null=True)
 
     cod_maestria = models.ForeignKey(datos_maestria, 
     on_delete=models.CASCADE, to_field='cod_maestria', db_column ='cod_maestria')  # CLAVE FORANEA
@@ -75,14 +75,17 @@ class listado_estudiantes(models.Model):
     nombre_materia = models.TextField(null=False)
     
     profesor_ci = models.TextField(null=False)
-    nombre_profesor_ci = models.TextField(null=False)
+
+    nom_profesor_materia = models.TextField(blank=True,null=True)
+    ape_profesor_materia = models.TextField(blank=True,null=True)
 
 
 class profesores(models.Model):
     ci_profesor = models.ForeignKey(Datos_basicos, 
     on_delete=models.CASCADE, to_field='cedula', db_column ='ci_profesor')  # CLAVE FORANEA
 
-    profesor = models.TextField(null=False)
+    nom_profesor_materia = models.TextField(blank=True,null=True)
+    ape_profesor_materia = models.TextField(blank=True,null=True)
     
     cod_maestria_prof = models.ForeignKey(datos_maestria, 
     on_delete=models.CASCADE, to_field='cod_maestria', db_column ='cod_maestria_prof')  # CLAVE FORANEA
@@ -96,6 +99,8 @@ class tabla_pagos(models.Model):
     banco_pago = models.TextField(null=False)
     fecha_pago = models.DateTimeField(null=False)
     monto_pago = models.DecimalField(null=False)
+    nombre_estudiante = models.TextField(blank=True,null=True)
+    apellido_estudiante = models.TextField(blank=True,null=True)
 
 class tabla_solicitudes(models.Model):
     cedula_responsable = models.ForeignKey(Datos_basicos, 
