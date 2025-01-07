@@ -129,3 +129,90 @@ def admin_login(request):
             return JsonResponse({"error": "Contraseña invalida"}, status=401)
     except datos_login.DoesNotExist:
         return JsonResponse({"error": "Usuario no encontrado o no es admin"}, status=401)
+
+from rest_framework.response import Response
+from rest_framework import status
+from .models import estudiante_datos, datos_maestria
+from .serializers import EstudianteDatosSerializer
+from rest_framework.views import APIView
+
+class AlmacenarDatosEstView(APIView):
+    def post(self, request):
+        """
+        Registrar o actualizar un estudiante.
+        """
+        cedula = request.data.get('cedula_estudiante')
+        nombre = request.data.get('nombre_est')
+        apellido = request.data.get('apellido_est')
+        carrera = request.data.get('carrera')
+        año_ingreso = request.data.get('año_ingreso')
+        estado_estudiante = request.data.get('estado_estudiante')  # Ahora es un texto ("Activo" o "Inactivo")
+        cod_maestria = request.data.get('cod_maestria')
+
+        # Buscar la instancia de Datos_basicos por la cédula
+        datos_basicos = Datos_basicos.objects.filter(cedula=cedula).first()
+
+        if not datos_basicos:
+            return Response({"message": "Estudiante no encontrado en Datos_basicos."}, status=http_status.HTTP_400_BAD_REQUEST)
+
+        # Buscar la instancia de datos_maestria por el código de maestría
+        datos_maestria_instance = datos_maestria.objects.filter(cod_maestria=cod_maestria).first()
+
+        if cod_maestria and not datos_maestria_instance:
+            return Response({"message": "Código de maestría no encontrado."}, status=http_status.HTTP_400_BAD_REQUEST)
+
+        # Crear o actualizar el estudiante
+        estudiante, created = estudiante_datos.objects.update_or_create(
+            cedula_estudiante=datos_basicos,  # Instancia de Datos_basicos
+            defaults={
+                'nombre_est': nombre,
+                'apellido_est': apellido,
+                'carrera': carrera,
+                'año_ingreso': año_ingreso,
+                'estado_estudiante': estado_estudiante,  # Ahora es texto ("Activo" o "Inactivo")
+                'cod_maestria': datos_maestria_instance if cod_maestria else None  # Instancia de datos_maestria o None
+            }
+        )
+
+        if created:
+            message = "Estudiante registrado con éxito."
+        else:
+            message = "Estudiante actualizado con éxito."
+
+        return Response({"message": message}, status=status.HTTP_200_OK)  # Usamos 'status.HTTP_200_OK'
+
+
+from rest_framework.response import Response
+from rest_framework import status
+from .models import Datos_basicos
+from .serializers import DatosBasicosSerializer
+from rest_framework.views import APIView
+
+class BuscarCedulaEstView(APIView):
+    def get(self, request):
+        """
+        Obtener todos los estudiantes (aunque esto puede no ser necesario para el frontend).
+        """
+        datosbasicos = Datos_basicos.objects.all()
+        serializer = DatosBasicosSerializer(datosbasicos, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        """
+        Buscar estudiante por cédula.
+        """
+        cedula_exp = request.data.get('cedula')
+        print(cedula_exp)
+        # Buscar el estudiante por la cédula proporcionada
+        estudiante = Datos_basicos.objects.filter(cedula=cedula_exp).first()
+        
+        if estudiante:
+            # Si existe el estudiante, devolver los datos
+            serializer = DatosBasicosSerializer(estudiante)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        else:
+            # Si no existe, devolver un mensaje indicando que debe registrarse
+            return Response(
+                {"message": "Estudiante no encontrado. Por favor, regístrese."},
+                status=status.HTTP_404_NOT_FOUND
+            )
