@@ -15,9 +15,10 @@ class Datos_basicos(models.Model):
     apellido = models.TextField(null=False)
     tipo_usuario = models.IntegerField(null=False)
     contraseña = models.TextField(null=False)
+    correo = models.EmailField(null=False, blank=True)
 
     def __str__(self):
-        return f"{self.nombre} {self.apellido}"
+        return f"{self.nombre} {self.apellido} {self.cedula} {self.tipo_usuario} {self.contraseña}"
 
 
 class datos_maestria(models.Model):

@@ -27,7 +27,6 @@ Vista correspondiente a solicitar los
 datos de las solicitudes a la BDD para que se los muestre
 al administrador en una lista
 '''
-
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -46,7 +45,6 @@ class SolicitudesListAPIView(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 '''
 Vista correspondiente a solicitar los
@@ -76,7 +74,6 @@ Vista correspondiente para poder enviar datos
 a la BDD para poder registrar usuarios
 en la aplicacion web
 '''
-## agregado
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -84,17 +81,41 @@ from .serializers import DatosBasicosSerializer
 from .models import Datos_basicos
 
 class DatosBasicosCreateView(APIView):
-    def post(self, request):        # <-- post request: manda datos a la bdd 
-        serializer = DatosBasicosSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    def get(self, request):         # <-- get request: recupera datos a la bdd 
-        datosbasicos = Datos_basicos.objects.all() 
+    
+    def get(self, request):
+        datosbasicos = Datos_basicos.objects.all()
         serializer = DatosBasicosSerializer(datosbasicos, many=True)
         return Response(serializer.data)
+    
+    def post(self, request):
+        cedula_exp = request.data.get('cedula')
+        print(f"Cédula recibida: {cedula_exp}")
+        
+        # Intentar buscar el usuario por cédula
+        usuario = Datos_basicos.objects.filter(cedula=cedula_exp).first()
+
+        if usuario:  # si existe, lo retorna para modificar/actualizar datos
+            serializer = DatosBasicosSerializer(usuario, data=request.data, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                print(usuario)
+                return Response(
+                    {"message": "Usuario encontrado con éxito.", "data": serializer.data},
+                    status=status.HTTP_200_OK
+                )
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        else:  # si no existe, pues, toma datos del front para luego crearlo
+            serializer = DatosBasicosSerializer(data=request.data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(
+                    {"message": "Usuario registrado con éxito.", "data": serializer.data},
+                    status=status.HTTP_201_CREATED
+                )
+            else:
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 '''
 Vista responsable del logeo de usuarios
@@ -119,7 +140,7 @@ def admin_login(request):
     try:
         user = datos_login.objects.get(cedula_usuario=cedula, tipo_usuario=1)
         if user.contraseña_usuario == password:
-            # Generate JWT token
+            # Si la contraseña es correcta, generar tokens
             refresh = RefreshToken.for_user(user)
             return JsonResponse({
                 "access": str(refresh.access_token),
@@ -130,6 +151,48 @@ def admin_login(request):
     except datos_login.DoesNotExist:
         return JsonResponse({"error": "Usuario no encontrado o no es admin"}, status=401)
 
+'''
+Vista responsable de visualizar si el estudiante esta registrado
+Funccionalidad en la pestaña de registrar estudiantes
+'''
+from rest_framework.response import Response
+from rest_framework import status
+from .models import Datos_basicos
+from .serializers import DatosBasicosSerializer
+from rest_framework.views import APIView
+
+class BuscarCedulaEstView(APIView):
+    def get(self, request):  # <-- get: obtener los datos basicos
+        datosbasicos = Datos_basicos.objects.all()
+        serializer = DatosBasicosSerializer(datosbasicos, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):  # <-- post: buscar estudiante por cédula
+        cedula_exp = request.data.get('cedula')
+        print(cedula_exp)    # <-- ver qué estaba recibiendo        
+        estudiante = Datos_basicos.objects.filter(cedula=cedula_exp).first()
+        
+        if estudiante:  # si estudiante es un valor no nulo
+            if estudiante.tipo_usuario == 2: #tipo_usuario == 2 es que representa que es estudiante
+                serializer = DatosBasicosSerializer(estudiante)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            else:
+                return Response( # la cedula ingresada es de prof o de admi
+                    {"message": "El estudiante no tiene el tipo de usuario requerido."},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        else:  # caso contrario, si no se encuentra la cedula
+            return Response(
+                {"message": "Estudiante no encontrado. Por favor, regístrese."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+
+'''
+Vista responsable de formalizar la inscripción de 
+los estudiantes en el sistema ya una vez encontrados por
+cedula
+'''
 from rest_framework.response import Response
 from rest_framework import status
 from .models import estudiante_datos, datos_maestria
@@ -181,38 +244,3 @@ class AlmacenarDatosEstView(APIView):
 
         return Response({"message": message}, status=status.HTTP_200_OK)  # Usamos 'status.HTTP_200_OK'
 
-
-from rest_framework.response import Response
-from rest_framework import status
-from .models import Datos_basicos
-from .serializers import DatosBasicosSerializer
-from rest_framework.views import APIView
-
-class BuscarCedulaEstView(APIView):
-    def get(self, request):
-        """
-        Obtener todos los estudiantes (aunque esto puede no ser necesario para el frontend).
-        """
-        datosbasicos = Datos_basicos.objects.all()
-        serializer = DatosBasicosSerializer(datosbasicos, many=True)
-        return Response(serializer.data)
-
-    def post(self, request):
-        """
-        Buscar estudiante por cédula.
-        """
-        cedula_exp = request.data.get('cedula')
-        print(cedula_exp)
-        # Buscar el estudiante por la cédula proporcionada
-        estudiante = Datos_basicos.objects.filter(cedula=cedula_exp).first()
-        
-        if estudiante:
-            # Si existe el estudiante, devolver los datos
-            serializer = DatosBasicosSerializer(estudiante)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        else:
-            # Si no existe, devolver un mensaje indicando que debe registrarse
-            return Response(
-                {"message": "Estudiante no encontrado. Por favor, regístrese."},
-                status=status.HTTP_404_NOT_FOUND
-            )

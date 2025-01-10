@@ -14,6 +14,7 @@ class Datos_basicos(models.Model):
     apellido = models.TextField(null=False)
     tipo_usuario = models.IntegerField(null=False)
     contraseña = models.TextField(null=False)
+    correo = models.EmailField(null=False, blank=True)
 
 class datos_maestria(models.Model):
     cod_maestria = models.IntegerField(primary_key=True)
