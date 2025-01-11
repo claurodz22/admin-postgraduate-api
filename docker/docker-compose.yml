@@ -5,6 +5,11 @@ services:
     restart: always
     env_file:
       - .env
+    environment:
+      - POSTGRES_PASSWORD: tata4646
+      - POSTGRES_USER: postgres
+      - POSTGRES_HOST: 127.0.0.1
+      - POSTGRES_DB: udo_test_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres:/docker-entrypoint-initdb.d
