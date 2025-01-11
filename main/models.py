@@ -15,9 +15,10 @@ class Datos_basicos(models.Model):
     apellido = models.TextField(null=False)
     tipo_usuario = models.IntegerField(null=False)
     contraseña = models.TextField(null=False)
+    correo = models.EmailField(null=False, blank=True)
 
     def __str__(self):
-        return f"{self.nombre} {self.apellido}"
+        return f"{self.nombre} {self.apellido} {self.cedula} {self.tipo_usuario} {self.contraseña}"
 
 
 class datos_maestria(models.Model):
@@ -40,8 +41,14 @@ class estudiante_datos(models.Model):
         db_column="cod_maestria",
     )  # CLAVE FORANEA
 
+    nombre_est = models.TextField(blank=True,null=True)
+    apellido_est = models.TextField(blank=True,null=True)
     año_ingreso = models.TextField(null=False)
-    status = models.BooleanField(null=False)
+    estado_estudiante = models.CharField(
+        max_length=10,  # Limitar el largo máximo
+        choices=[("Activo", "Activo"), ("Inactivo", "Inactivo")],
+        default="Activo"  # Valor por defecto
+    )
     carrera = models.TextField(null=False)
 
 
