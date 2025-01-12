@@ -74,11 +74,11 @@ Vista correspondiente para poder enviar datos
 a la BDD para poder registrar usuarios
 en la aplicacion web
 '''
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
+from .models import Datos_basicos, datos_login, roles
 from .serializers import DatosBasicosSerializer
-from .models import Datos_basicos
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework import status
 
 class DatosBasicosCreateView(APIView):
     
@@ -89,27 +89,63 @@ class DatosBasicosCreateView(APIView):
     
     def post(self, request):
         cedula_exp = request.data.get('cedula')
-        print(f"Cédula recibida: {cedula_exp}")
         
+        print(f"Cédula recibida: {cedula_exp}")
         # Intentar buscar el usuario por cédula
         usuario = Datos_basicos.objects.filter(cedula=cedula_exp).first()
+
+        # Obtener tipo_usuario directamente desde el request
+        tipo_usuario_exp = request.data.get('tipo_usuario')  # Obtener el tipo_usuario del request
+        print(f"Tipo de usuario recibido: {tipo_usuario_exp}")
+
+        # Buscar la instancia del rol correspondiente al tipo_usuario
+        if tipo_usuario_exp:
+            try:
+                tipo_usuario_obj = roles.objects.get(codigo_rol=tipo_usuario_exp)
+            except roles.DoesNotExist:
+                return Response({"error": "Tipo de usuario no encontrado."}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            tipo_usuario_obj = None
 
         if usuario:  # si existe, lo retorna para modificar/actualizar datos
             serializer = DatosBasicosSerializer(usuario, data=request.data, partial=True)
             if serializer.is_valid():
-                serializer.save()
-                print(usuario)
+                # Guardar los datos en la tabla Datos_basicos
+                updated_usuario = serializer.save()
+
+                # Solo actualizamos datos_login si tipo_usuario no es None
+                if tipo_usuario_obj is not None:
+                    datos_login.objects.update_or_create(
+                        cedula_usuario=usuario,  # Usamos la instancia de Datos_basicos
+                        defaults={
+                            'contraseña_usuario': updated_usuario.contraseña,
+                            'tipo_usuario': tipo_usuario_obj  # Usamos la instancia del rol
+                        }
+                    )
+
+                print(f"Datos guardados en datos_login: {usuario.cedula}, {updated_usuario.contraseña}, {tipo_usuario_obj.nombre_rol if tipo_usuario_obj else 'sin rol'}")
+                
                 return Response(
-                    {"message": "Usuario encontrado con éxito.", "data": serializer.data},
+                    {"message": "Usuario encontrado y actualizado con éxito.", "data": serializer.data},
                     status=status.HTTP_200_OK
                 )
             else:
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        else:  # si no existe, pues, toma datos del front para luego crearlo
+        else:  # si no existe, toma los datos del front para luego crearlo
             serializer = DatosBasicosSerializer(data=request.data)
             if serializer.is_valid():
-                serializer.save()
+                # Guardar los datos en la tabla Datos_basicos
+                usuario_guardado = serializer.save()
+
+                # Solo guardamos en datos_login si tipo_usuario no es None
+                if tipo_usuario_obj is not None:
+                    datos_login.objects.create(
+                        cedula_usuario=usuario_guardado,  # Usamos la instancia de Datos_basicos
+                        contraseña_usuario=usuario_guardado.contraseña,
+                        tipo_usuario=tipo_usuario_obj  # Usamos la instancia del rol
+                    )
+
                 return Response(
                     {"message": "Usuario registrado con éxito.", "data": serializer.data},
                     status=status.HTTP_201_CREATED
