@@ -1,15 +1,14 @@
+name: ADMIN-POSTGRADUATE
 services:
   postgres:
-    image: postgres
+    # image: postgres
     container_name: postgres-container
+    build:
+      context: ./postgres
+      dockerfile: Dockerfile
     restart: always
     env_file:
-      - .env
-    environment:
-      - POSTGRES_PASSWORD: tata4646
-      - POSTGRES_USER: postgres
-      - POSTGRES_HOST: 127.0.0.1
-      - POSTGRES_DB: udo_test_db
+      - .env.example
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./postgres:/docker-entrypoint-initdb.d
@@ -19,13 +18,14 @@ services:
     image: dpage/pgadmin4
     container_name: pgadmin-container
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@email.com
-      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_DEFAULT_EMAIL: "p@p.p"
+      PGADMIN_DEFAULT_PASSWORD: "p"
     ports:
       - "8080:80"
     depends_on:
       - postgres
     volumes:
+      - ./pgadmin/pgadmin4.conf:/pgadmin4/config_local.py
       - ./pgadmin/servers.json:/pgadmin4/servers.json
 
 volumes:

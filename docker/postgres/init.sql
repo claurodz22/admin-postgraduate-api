@@ -1,1 +1,1 @@
-CREATE DATABASE udo_test_db;
+-- CREATE DATABASE udo_test_db;
