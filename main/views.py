@@ -22,6 +22,137 @@ class RegisterUserView(views.APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 '''
 
+
+# views.py
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.request import Request
+
+from rest_framework import status
+from .models import listado_estudiantes
+from .serializers import ListadoEstudiantesSerializer
+
+class ListadoEstudiantes(APIView):
+    
+    # Método GET: Para obtener todos los estudiantes
+    def get(self, request):
+        # Obtener los query params
+        q_code = request.query_params.get('q_code')
+        m_code = request.query_params.get('m_code')
+        
+        # Filtrar según los parámetros
+        estudiantes = listado_estudiantes.objects.all()
+        # print(estudiantes)
+        # Filtrar por 'q_code' si está presente en los parámetros
+        if q_code:
+            estudiantes = estudiantes.filter(codigo_cohorte=q_code)
+
+        # Filtrar por 'm_code' si está presente en los parámetros
+        if m_code:
+            estudiantes = estudiantes.filter(cod_materia=m_code)
+
+        # Serializar los datos de los estudiantes
+        serializer = ListadoEstudiantesSerializer(estudiantes, many=True)
+        
+        # Devolver la respuesta con los datos serializados
+        return Response(serializer.data)
+ 
+
+    # Método POST: Para agregar un estudiante nuevo
+    def post(self, request):
+        serializer = ListadoEstudiantesSerializer(data=request.data)  # Recibir y validar los datos del estudiante
+
+        if serializer.is_valid():  # Verificar si los datos son válidos
+            serializer.save()  # Guardar el nuevo estudiante
+            return Response(serializer.data, status=status.HTTP_201_CREATED)  # Retornar los datos y el código de éxito 201
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)  # Si los datos no son válidos, retornar errores
+
+
+'''
+Codigo cohorte
+'''
+
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from django.http import JsonResponse
+from .models import Cohorte
+from .serializers import CohorteSerializer
+import datetime
+
+@api_view(['POST'])
+def generar_codigo_cohorte(request):
+    if request.method == 'POST':
+        codigo_cohorte = request.data.get('codigo_cohorte')
+        fecha_inicio = request.data.get('fecha_inicio')
+        fecha_fin = request.data.get('fecha_fin')
+        sede_cohorte = request.data.get('sede_cohorte')
+        tipo_maestria = request.data.get('tipo_maestria')
+
+        # Función para generar un nuevo código
+        def generate_new_code(code):
+            prefix = code[:-6]  # Toma todo excepto los últimos 6 caracteres (ej. FIIA-2024 -> FII)
+            year = code[-4:]    # Toma los últimos 4 caracteres (el año)
+            current_letter = code[-6]  # Toma la letra actual (A, B, C, etc.)
+            next_letter = chr(ord(current_letter) + 1)  # Genera la siguiente letra
+            return f"{prefix}{next_letter}-{year}"
+
+        # Verifica si el código de cohorte ya existe
+        while Cohorte.objects.filter(codigo_cohorte=codigo_cohorte).exists():
+            codigo_cohorte = generate_new_code(codigo_cohorte)
+
+        # Crea el nuevo cohorte
+        try:
+            cohorte = Cohorte.objects.create(
+                codigo_cohorte=codigo_cohorte,
+                fecha_inicio=datetime.datetime.strptime(fecha_inicio, '%Y-%m-%d'),
+                fecha_fin=datetime.datetime.strptime(fecha_fin, '%Y-%m-%d'),
+                sede_cohorte=sede_cohorte,
+                tipo_maestria=tipo_maestria
+            )
+            serializer = CohorteSerializer(cohorte)
+            return Response({
+                'codigo_cohorte': codigo_cohorte
+            }, status=201)
+        
+        except Exception as e:
+            return JsonResponse({'error': str(e)}, status=400)
+
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from django.http import JsonResponse
+from .models import Cohorte
+
+@api_view(['POST'])
+def verificar_codigo_cohorte(request):
+    if request.method == 'POST':
+        codigo_cohorte = request.data.get('codigo_cohorte')
+
+        if not codigo_cohorte:
+            return JsonResponse({'error': 'Código de cohorte no proporcionado'}, status=400)
+
+        # Función para generar un nuevo código
+        def generate_new_code(code):
+            prefix = code[:-6]  # Toma todo excepto los últimos 6 caracteres (ej. FIIA-2024 -> FII)
+            year = code[-4:]    # Toma los últimos 4 caracteres (el año)
+            current_letter = code[-6]  # Toma la letra actual (A, B, C, etc.)
+            next_letter = chr(ord(current_letter) + 1)  # Genera la siguiente letra
+            return f"{prefix}{next_letter}-{year}"
+
+        # Verifica si el código de cohorte ya existe
+        if Cohorte.objects.filter(codigo_cohorte=codigo_cohorte).exists():
+            new_code = generate_new_code(codigo_cohorte)
+            return JsonResponse({
+                'exists': True,
+                'new_code': new_code
+            })
+        else:
+            return JsonResponse({
+                'exists': False
+            })
+
+
+
+
 '''
 Vista correspondiente a solicitar los
 datos de las solicitudes a la BDD para que se los muestre
@@ -165,6 +296,10 @@ from django.views.decorators.http import require_http_methods
 from .models import datos_login
 from rest_framework_simplejwt.tokens import RefreshToken
 
+'''
+request involucra todo lo que es proceso de https, se puede 
+hacer request id, headers, o user etc 
+'''
 @csrf_exempt
 @require_http_methods(["POST"])
 def admin_login(request):
@@ -280,3 +415,36 @@ class AlmacenarDatosEstView(APIView):
 
         return Response({"message": message}, status=status.HTTP_200_OK)  # Usamos 'status.HTTP_200_OK'
 
+
+
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+from .models import datos_login
+from rest_framework_simplejwt.tokens import RefreshToken
+
+'''
+request involucra todo lo que es proceso de https, se puede 
+hacer request id, headers, o user etc 
+'''
+@csrf_exempt
+@require_http_methods(["POST"])
+def admin_profesor(request):
+    import json
+    data = json.loads(request.body)
+    cedula = data.get("username")
+    password = data.get("password")
+
+    try:
+        user = datos_login.objects.get(cedula_usuario=cedula, tipo_usuario=3)
+        if user.contraseña_usuario == password:
+            # Si la contraseña es correcta, generar tokens
+            refresh = RefreshToken.for_user(user)
+            return JsonResponse({
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+            }, status=200)
+        else:
+            return JsonResponse({"error": "Contraseña invalida"}, status=401)
+    except datos_login.DoesNotExist:
+        return JsonResponse({"error": "Usuario no encontrado o no es profesor"}, status=401)

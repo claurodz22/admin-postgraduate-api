@@ -53,10 +53,26 @@ class estudiante_datos(models.Model):
 
 
 class Cohorte(models.Model):
+    # Definir los posibles valores para 'tipo_maestria' y 'sede_cohorte'
+    TIPO_MAESTRIA_CHOICES = [
+        ('GG', 'Cs Administrativas / Gerencia General (GG)'),
+        ('FI', 'Cs Administrativas / Finanzas (FI)'),
+        ('RH', 'Cs Administrativas / Gerencia de Recursos Humanos (RRHH)')
+    ]
+
+    SEDE_CHOICES = [
+        ('barcelona', 'Barcelona'),
+        ('cantaura', 'Cantaura')
+    ]
+
     codigo_cohorte = models.TextField(primary_key=True)
     fecha_inicio = models.DateTimeField(null=False)
     fecha_fin = models.DateTimeField(null=False)
-    sede_cohorte = models.TextField(null=False)
+    sede_cohorte = models.CharField(max_length=50, choices=SEDE_CHOICES, null=False)
+    tipo_maestria = models.CharField(max_length=2, choices=TIPO_MAESTRIA_CHOICES, null=False, blank=True)
+
+    def __str__(self):
+        return f"Cohorte {self.codigo_cohorte} - {self.tipo_maestria} ({self.sede_cohorte})"
 
 
 class roles(models.Model):
@@ -121,6 +137,7 @@ class listado_estudiantes(models.Model):
     profesor_ci = models.TextField(null=False)
     nom_profesor_materia = models.TextField(blank=True, null=True)
     ape_profesor_materia = models.TextField(blank=True, null=True)
+    nota = models.IntegerField(blank=True, null=True)
 
 
 class profesores(models.Model):
