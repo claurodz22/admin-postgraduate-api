@@ -144,8 +144,21 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
-    "DEFAULT_AUTHENTICATION_CLASSES": (
-        # 'rest_framework.authentication.BasicAuthentication',
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
-    ),
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'main.authentication.CustomJWTAuthentication',  # Ruta a tu custom authentication
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+}
+
+
+from datetime import timedelta
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),  # Duración del access token (por defecto: 5 minutos)
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),    # Duración del refresh token (por defecto: 1 día)
+    'ROTATE_REFRESH_TOKENS': False,                # Evita rotar tokens refresh al usarlos
+    'BLACKLIST_AFTER_ROTATION': True,              # Invalida refresh tokens rotados (si ROTATE_REFRESH_TOKENS=True)
+    'UPDATE_LAST_LOGIN': False,                    # Actualiza la fecha de último acceso del usuario
 }

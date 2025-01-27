@@ -252,7 +252,7 @@ class DatosBasicosCreateView(APIView):
                             'contraseña_usuario': updated_usuario.contraseña,
                             'tipo_usuario': tipo_usuario_obj  # Usamos la instancia del rol
                         }
-                    )
+                    )                
 
                 print(f"Datos guardados en datos_login: {usuario.cedula}, {updated_usuario.contraseña}, {tipo_usuario_obj.nombre_rol if tipo_usuario_obj else 'sin rol'}")
                 
@@ -422,6 +422,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from .models import datos_login
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.decorators import action
 
 '''
 request involucra todo lo que es proceso de https, se puede 
@@ -448,3 +449,77 @@ def admin_profesor(request):
             return JsonResponse({"error": "Contraseña invalida"}, status=401)
     except datos_login.DoesNotExist:
         return JsonResponse({"error": "Usuario no encontrado o no es profesor"}, status=401)
+
+from rest_framework.permissions import AllowAny
+class AdminProfesorView(APIView):
+    @action(detail=False, methods=["post"], url_path="admin-profesor", url_name="admin_profesor")
+    def post(self, request):
+        data = request.data  # Obtener datos del cuerpo de la solicitud
+        cedula = data.get("username")
+        password = data.get("password")
+
+        try:
+            user = datos_login.objects.get(cedula_usuario=cedula, tipo_usuario=3)
+            if user.contraseña_usuario == password:
+                # Generar tokens JWT
+                refresh = RefreshToken.for_user(user)
+                return Response({
+                    "access": str(refresh.access_token),
+                    "refresh": str(refresh),
+                }, status=status.HTTP_200_OK)
+            else:
+                return Response({"error": "Contraseña inválida"}, status=status.HTTP_401_UNAUTHORIZED)
+        except datos_login.DoesNotExist:
+            return Response({"error": "Usuario no encontrado o no es profesor"}, status=status.HTTP_404_NOT_FOUND)
+
+
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from .serializers import DatosLoginSerializer
+
+class UserInfoView(APIView):
+    permission_classes = [IsAuthenticated]  # Requiere autenticación
+
+    def get(self, request):
+        # Obtener la cédula del usuario autenticado
+        user = request.user  # Esto asume que request.user está vinculado con Datos_basicos
+
+        try:
+            print(type(user))
+            serializedUser = DatosLoginSerializer(user).data
+            # Buscar el usuario en Datos_basicos por su cédula
+            datos_usuario = Datos_basicos.objects.get(cedula=serializedUser["cedula_usuario"])
+            # Serializar los datos del usuario
+            serializer = DatosBasicosSerializer(datos_usuario)
+            return Response(serializer.data, status=200)
+        except Datos_basicos.DoesNotExist:
+            return Response({"error": "Usuario no encontrado"}, status=404)
+
+
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from .serializers import MateriasPensumSerializer
+from .models import materias_pensum
+
+class ProfMaterias(APIView):
+    permission_classes = [IsAuthenticated]  # Requiere autenticación
+
+    def get(self, request):
+        # Obtener la cédula del usuario autenticado
+        user = request.user  # Esto asume que request.user está vinculado con Datos_basicos
+
+        try:
+            print(type(user))
+            serializedUser = DatosLoginSerializer(user).data
+            # Buscar el usuario en Datos_basicos por su cédula
+            datos_usuario = materias_pensum.objects.filter(cedula_profesor=serializedUser["cedula_usuario"])
+            # Serializar los datos del usuario
+            serializer = MateriasPensumSerializer(datos_usuario,many=True)
+            print(type(serializer.data))
+            return Response(serializer.data, status=200)
+        except materias_pensum.DoesNotExist:
+            return Response({"error": "Usuario no encontrado"}, status=404)

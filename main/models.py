@@ -93,6 +93,11 @@ class datos_login(models.Model):
         roles, on_delete=models.CASCADE, to_field="codigo_rol", db_column="tipo_usuario"
     )  # CLAVE FORANEA
 
+    @property
+    def is_authenticated(self):
+        # Siempre devuelve True porque este usuario es "autenticado" si existe
+        return True
+
 
 class materias_pensum(models.Model):
     cod_materia = models.TextField(primary_key=True)
@@ -107,6 +112,14 @@ class materias_pensum(models.Model):
     nom_profesor_materia = models.TextField(blank=True, null=True)
     ape_profesor_materia = models.TextField(blank=True, null=True)
 
+    cedula_profesor = models.ForeignKey(
+        Datos_basicos,
+        on_delete=models.CASCADE,
+        to_field="cedula",
+        db_column="cedula_profesor",
+        blank=True,
+        null = True
+    )  # CLAVE FORANEA
 
 class listado_estudiantes(models.Model):
     cedula_estudiante = models.ForeignKey(
