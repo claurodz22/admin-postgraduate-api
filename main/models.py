@@ -1,15 +1,41 @@
-"""
-Modelos: define la estructura de los datos de una carga. 
-Los modelos se pueden utilizar para: 
-- Validar solicitudes de manera básica
-- Crear plantillas de mapeo para transformar datos
-- Generar un tipo de datos definido por el usuario (UDT) al crear un SDK
-"""
-
 from django.db import models
 
+##
+# @file models.py
+# @brief Definición de los modelos para la base de datos de estudiantes, profesores, pagos, y otros elementos relacionados.
+#
+# Este archivo contiene la definición de los modelos de datos que representan las entidades
+# clave en el sistema, como los estudiantes, profesores, materias, pagos y solicitudes. 
+# Los modelos son utilizados para la interacción con la base de datos en Django, utilizando 
+# PostgreSQL como base de datos para la persistencia de datos.
+#
+# Los modelos en este archivo incluyen:
+# - `Datos_basicos`: Almacena información básica de los usuarios (estudiantes y profesores).
+# - `datos_maestria`: Información sobre las maestrías disponibles.
+# - `estudiante_datos`: Información específica de los estudiantes.
+# - `Cohorte`: Información sobre los cohorte de estudiantes y sus características.
+# - `roles`: Define los roles de los usuarios en el sistema (e.g., estudiante, profesor).
+# - `datos_login`: Información relacionada con el acceso y autenticación de los usuarios.
+# - `materias_pensum`: Materias asociadas a las maestrías.
+# - `listado_estudiantes`: Relaciona a los estudiantes con sus materias y cohorte.
+# - `profesores`: Información específica de los profesores y sus materias.
+# - `tabla_pagos`: Almacena información sobre los pagos realizados por los estudiantes.
+# - `tabla_solicitudes`: Información relacionada con las solicitudes de los estudiantes.
+#
+# La base de datos utilizada para almacenar estos modelos es PostgreSQL.
+#
+# @see Django Models
+# @see Django ORM
+# @see PostgreSQL Database
+#
 
 class Datos_basicos(models.Model):
+    """
+    @brief Modelo que almacena los datos básicos de los usuarios, incluyendo estudiantes y profesores.
+    
+    Este modelo tiene los campos necesarios para registrar la cédula, nombre, apellido, tipo de usuario,
+    contraseña y correo electrónico de un usuario.
+    """
     cedula = models.TextField(primary_key=True)  # CEDULA = PRIMARY KEY
     nombre = models.TextField(null=False)
     apellido = models.TextField(null=False)
@@ -18,15 +44,29 @@ class Datos_basicos(models.Model):
     correo = models.EmailField(null=False, blank=True)
 
     def __str__(self):
+        """
+        @brief Representación en string del modelo, combinando el nombre, apellido, cédula y tipo de usuario.
+        """
         return f"{self.nombre} {self.apellido} {self.cedula} {self.tipo_usuario} {self.contraseña}"
 
 
 class datos_maestria(models.Model):
+    """
+    @brief Modelo que almacena información sobre los programas de maestría disponibles.
+    
+    Este modelo tiene un campo para el código de la maestría y su nombre.
+    """
     cod_maestria = models.IntegerField(primary_key=True)
     nombre_maestria = models.TextField(null=False)
 
 
 class estudiante_datos(models.Model):
+    """
+    @brief Modelo que almacena los datos específicos de los estudiantes, como su relación con la maestría.
+    
+    Este modelo tiene claves foráneas a `Datos_basicos` (para los estudiantes) y `datos_maestria` (para la maestría).
+    También almacena información sobre su estado y carrera.
+    """
     cedula_estudiante = models.ForeignKey(
         Datos_basicos,
         on_delete=models.CASCADE,
@@ -41,8 +81,8 @@ class estudiante_datos(models.Model):
         db_column="cod_maestria",
     )  # CLAVE FORANEA
 
-    nombre_est = models.TextField(blank=True,null=True)
-    apellido_est = models.TextField(blank=True,null=True)
+    nombre_est = models.TextField(blank=True, null=True)
+    apellido_est = models.TextField(blank=True, null=True)
     año_ingreso = models.TextField(null=False)
     estado_estudiante = models.CharField(
         max_length=10,  # Limitar el largo máximo
@@ -53,6 +93,12 @@ class estudiante_datos(models.Model):
 
 
 class Cohorte(models.Model):
+    """
+    @brief Modelo que almacena la información de los cohorte de estudiantes.
+    
+    Define las opciones para los tipos de maestría y sedes de los cohorte.
+    Incluye fechas de inicio y fin del cohorte.
+    """
     # Definir los posibles valores para 'tipo_maestria' y 'sede_cohorte'
     TIPO_MAESTRIA_CHOICES = [
         ('GG', 'Cs Administrativas / Gerencia General (GG)'),
@@ -72,15 +118,28 @@ class Cohorte(models.Model):
     tipo_maestria = models.CharField(max_length=2, choices=TIPO_MAESTRIA_CHOICES, null=False, blank=True)
 
     def __str__(self):
+        """
+        @brief Representación en string del cohorte, incluyendo código, tipo de maestría y sede.
+        """
         return f"Cohorte {self.codigo_cohorte} - {self.tipo_maestria} ({self.sede_cohorte})"
 
 
 class roles(models.Model):
+    """
+    @brief Modelo que define los roles de los usuarios en el sistema.
+    
+    Este modelo almacena el código y nombre del rol, como `admin`, `profesor`, `estudiante`.
+    """
     codigo_rol = models.IntegerField(primary_key=True)
     nombre_rol = models.TextField(null=False)
 
 
 class datos_login(models.Model):
+    """
+    @brief Modelo que almacena la información de autenticación de los usuarios.
+    
+    Relaciona al usuario con su tipo de rol y contraseña.
+    """
     cedula_usuario = models.ForeignKey(
         Datos_basicos,
         on_delete=models.CASCADE,
@@ -95,11 +154,18 @@ class datos_login(models.Model):
 
     @property
     def is_authenticated(self):
-        # Siempre devuelve True porque este usuario es "autenticado" si existe
+        """
+        @brief Propiedad que siempre devuelve True, indicando que el usuario está autenticado si existe.
+        """
         return True
 
 
 class materias_pensum(models.Model):
+    """
+    @brief Modelo que almacena información sobre las materias del pensum de cada maestría.
+    
+    Este modelo incluye la relación con los profesores y las materias asociadas.
+    """
     cod_materia = models.TextField(primary_key=True)
     cod_maestria = models.ForeignKey(
         datos_maestria,
@@ -118,10 +184,16 @@ class materias_pensum(models.Model):
         to_field="cedula",
         db_column="cedula_profesor",
         blank=True,
-        null = True
+        null=True
     )  # CLAVE FORANEA
 
+
 class listado_estudiantes(models.Model):
+    """
+    @brief Modelo que almacena el listado de estudiantes, incluyendo su materia y cohorte.
+    
+    Relaciona a los estudiantes con las materias y cohorte correspondientes.
+    """
     cedula_estudiante = models.ForeignKey(
         Datos_basicos,
         on_delete=models.CASCADE,
@@ -154,6 +226,11 @@ class listado_estudiantes(models.Model):
 
 
 class profesores(models.Model):
+    """
+    @brief Modelo que almacena la información de los profesores.
+    
+    Relaciona a los profesores con las materias y maestrías que imparten.
+    """
     ci_profesor = models.ForeignKey(
         Datos_basicos,
         on_delete=models.CASCADE,
@@ -168,10 +245,16 @@ class profesores(models.Model):
         on_delete=models.CASCADE,
         to_field="cod_maestria",
         db_column="cod_maestria_prof",
+        null=True,  # Cambiar a null=True para permitir valores nulos
     )  # CLAVE FORANEA
 
 
 class tabla_pagos(models.Model):
+    """
+    @brief Modelo que almacena la información sobre los pagos realizados por los estudiantes.
+    
+    Relaciona los pagos con el estudiante y proporciona detalles sobre el pago.
+    """
     cedula_responsable = models.ForeignKey(
         Datos_basicos,
         on_delete=models.CASCADE,
@@ -187,10 +270,18 @@ class tabla_pagos(models.Model):
     apellido_estudiante = models.TextField(blank=True, null=True)
 
     def __str__(self):
+        """
+        @brief Representación en string del pago, utilizando el nombre del estudiante.
+        """
         return self.nombre
 
 
 class tabla_solicitudes(models.Model):
+    """
+    @brief Modelo que almacena la información sobre las solicitudes de los estudiantes.
+    
+    Relaciona las solicitudes con los estudiantes y proporciona detalles sobre su estado y tipo.
+    """
     cedula_responsable = models.ForeignKey(
         Datos_basicos,
         on_delete=models.CASCADE,
