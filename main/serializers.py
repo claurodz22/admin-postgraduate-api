@@ -11,6 +11,18 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from . import models
 
+class PlanificacionProfesorSerializer(serializers.ModelSerializer):
+    """serializer"""
+    class Meta:
+        model = models.PlanificacionProfesor
+        fields = '__all__'
+
+class DatosBasicosSerializer(serializers.ModelSerializer):
+    """serializer"""
+    class Meta:
+        model = models.Datos_basicos
+        fields = '__all__'
+
 ## @class UserSerializer
 # @brief Serializa el modelo de usuario.
 # 

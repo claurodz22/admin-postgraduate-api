@@ -19,8 +19,9 @@
 # - `admin-login/`
 #
 
+
 from django.urls import path
-from .views import ListadoEstudiantes, ProfMaterias, login_profesor, verificar_codigo_cohorte, generar_codigo_cohorte, PagosListAPIView, DatosBasicosCreateView, admin_login, SolicitudesListAPIView, BuscarCedulaEstView, AlmacenarDatosEstView 
+from .views import ListadoEstudiantes,CohorteListAPIView, PlanificacionProfesorAPIView, ProfMaterias, login_profesor, verificar_codigo_cohorte, generar_codigo_cohorte, PagosListAPIView, DatosBasicosCreateView, admin_login, SolicitudesListAPIView, BuscarCedulaEstView, AlmacenarDatosEstView 
 from . import views
 from .views import UserInfoView
 from rest_framework_simplejwt.views import (
@@ -42,7 +43,11 @@ urlpatterns = [
     # @note Se requiere autenticación para acceder a esta ruta.
     # @see ProfMaterias
     path('profe-materias/', ProfMaterias.as_view(), name='profe-materias'),
-    
+
+    path('cohortes/', CohorteListAPIView.as_view(), name='cohortes'),
+
+    path('profe-plan/', PlanificacionProfesorAPIView.as_view(), name='profe-plan'),
+        
     ## @route /api/token/
     # @brief Ruta para obtener un token de acceso.
     # @note Esta ruta permite la autenticación mediante JWT, generando un token de acceso válido.

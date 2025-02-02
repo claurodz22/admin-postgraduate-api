@@ -21,6 +21,81 @@
 # @see APIView
 #
 
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from .models import Cohorte
+from .serializers import CohorteSerializer
+
+class CohorteListAPIView(APIView):
+    """
+    @brief Clase que gestiona los cohortes mediante solicitudes HTTP.
+    Esta clase permite recuperar (GET) o crear (POST) registros de cohortes.
+    """
+
+    def get(self, request):
+        """
+        @brief Recupera todos los cohortes registrados en la base de datos.
+        @param request Objeto HTTP Request.
+        @return Response Objeto HTTP Response con la lista de cohortes en formato JSON.
+        """
+        cohortes = Cohorte.objects.all()  # Recupera todos los registros de cohortes
+        serializer = CohorteSerializer(cohortes, many=True)  # Serializa los datos para su retorno en formato JSON
+        return Response(serializer.data)
+
+    def post(self, request):
+        """
+        @brief Crea un nuevo registro de cohorte en la base de datos.
+        @param request Objeto HTTP Request que contiene los datos del nuevo cohorte en formato JSON.
+        @return Response Objeto HTTP Response:
+            - Si los datos son válidos, retorna el cohorte creado y un código de estado 201 (CREATED).
+            - Si los datos son inválidos, retorna los errores de validación y un código de estado 400 (BAD REQUEST).
+        """
+        serializer = CohorteSerializer(data=request.data)  # Deserializa los datos enviados en la solicitud
+        if serializer.is_valid():  # Valida los datos recibidos
+            serializer.save()  # Guarda el nuevo registro en la base de datos
+            return Response(serializer.data, status=status.HTTP_201_CREATED)  # Retorna el registro creado
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)  # Retorna errores si la validación falla
+
+
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from .models import PlanificacionProfesor
+from .serializers import PlanificacionProfesorSerializer
+
+class PlanificacionProfesorAPIView(APIView):
+    """
+    @brief Clase que gestiona la planificación de profesores mediante solicitudes HTTP.
+    Esta clase permite recuperar (GET) o crear (POST) registros en la tabla de planificación de profesores.
+    """
+
+    def get(self, request):
+        """
+        @brief Recupera todas las planificaciones de profesores registradas en la base de datos.
+        @param request Objeto HTTP Request.
+        @return Response Objeto HTTP Response con la lista de planificaciones en formato JSON.
+        """
+        planificaciones = PlanificacionProfesor.objects.all()  # Recupera todos los registros de planificación
+        serializer = PlanificacionProfesorSerializer(planificaciones, many=True)  # Serializa los datos
+        return Response(serializer.data)
+
+    def post(self, request):
+        """
+        @brief Crea un nuevo registro de planificación en la base de datos.
+        @param request Objeto HTTP Request que contiene los datos de la planificación en formato JSON.
+        @return Response Objeto HTTP Response:
+            - Si los datos son válidos, retorna la planificación creada y un código de estado 201 (CREATED).
+            - Si los datos son inválidos, retorna los errores de validación y un código de estado 400 (BAD REQUEST).
+        """
+        serializer = PlanificacionProfesorSerializer(data=request.data)  # Deserializa los datos enviados en la solicitud
+        if serializer.is_valid():  # Valida los datos recibidos
+            serializer.save()  # Guarda el nuevo registro en la base de datos
+            return Response(serializer.data, status=status.HTTP_201_CREATED)  # Retorna el registro creado
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)  # Retorna errores si la validación falla
+
+
 """
 ------------------CLASE: LISTADO ESTUDIANTES---------------------
 """

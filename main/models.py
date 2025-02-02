@@ -29,6 +29,8 @@ from django.db import models
 # @see PostgreSQL Database
 #
 
+## @class Datos_basicos
+# @brief Modelo que almacena los datos básicos de los usuarios, incluyendo estudiantes y profesores.
 class Datos_basicos(models.Model):
     """
     @brief Modelo que almacena los datos básicos de los usuarios, incluyendo estudiantes y profesores.
@@ -49,7 +51,8 @@ class Datos_basicos(models.Model):
         """
         return f"{self.nombre} {self.apellido} {self.cedula} {self.tipo_usuario} {self.contraseña}"
 
-
+## @class datos_maestria
+# @brief Modelo que almacena información sobre los programas de maestría disponibles.
 class datos_maestria(models.Model):
     """
     @brief Modelo que almacena información sobre los programas de maestría disponibles.
@@ -59,7 +62,8 @@ class datos_maestria(models.Model):
     cod_maestria = models.IntegerField(primary_key=True)
     nombre_maestria = models.TextField(null=False)
 
-
+## @class estudiante_datos
+# @brief Modelo que almacena los datos específicos de los estudiantes, como su relación con la maestría.
 class estudiante_datos(models.Model):
     """
     @brief Modelo que almacena los datos específicos de los estudiantes, como su relación con la maestría.
@@ -91,7 +95,8 @@ class estudiante_datos(models.Model):
     )
     carrera = models.TextField(null=False)
 
-
+## @class Cohorte
+# @brief Modelo que almacena la información de los cohorte de estudiantes.
 class Cohorte(models.Model):
     """
     @brief Modelo que almacena la información de los cohorte de estudiantes.
@@ -123,7 +128,8 @@ class Cohorte(models.Model):
         """
         return f"Cohorte {self.codigo_cohorte} - {self.tipo_maestria} ({self.sede_cohorte})"
 
-
+## @class roles
+# @brief Modelo que define los roles de los usuarios en el sistema.
 class roles(models.Model):
     """
     @brief Modelo que define los roles de los usuarios en el sistema.
@@ -133,7 +139,8 @@ class roles(models.Model):
     codigo_rol = models.IntegerField(primary_key=True)
     nombre_rol = models.TextField(null=False)
 
-
+## @class datos_login
+# @brief Modelo que almacena la información de autenticación de los usuarios.
 class datos_login(models.Model):
     """
     @brief Modelo que almacena la información de autenticación de los usuarios.
@@ -159,7 +166,8 @@ class datos_login(models.Model):
         """
         return True
 
-
+## @class materias_pensum
+# @brief Modelo que almacena información sobre las materias del pensum de cada maestría.
 class materias_pensum(models.Model):
     """
     @brief Modelo que almacena información sobre las materias del pensum de cada maestría.
@@ -187,12 +195,45 @@ class materias_pensum(models.Model):
         null=True
     )  # CLAVE FORANEA
 
+class PlanificacionProfesor(models.Model):
+    """
+    @brief Modelo que almacena la planificación de un profesor, incluyendo actividades y porcentaje.
+    """
+    codplanificacion = models.CharField(
+        primary_key=True, max_length=50, db_column="codplanificacion",
+    )
+    actividades_planificacion = models.TextField(blank=True, null=True)
+    actividades_porcentaje = models.TextField(blank=True, null=True)
+    cod_materia = models.ForeignKey(
+        materias_pensum, # type: ignore
+        on_delete=models.CASCADE,
+        to_field="cod_materia",
+        db_column="cod_materia",
+        blank=True, null=True
+    )  # CLAVE FORANEA
 
+    codigo_cohorte = models.ForeignKey(
+        Cohorte, # type: ignore
+        on_delete=models.CASCADE,
+        to_field="codigo_cohorte",
+        db_column="codigo_cohorte",
+        blank=True, null=True
+    )  # CLAVE FORANEA
+
+    cedula_profesor = models.ForeignKey(
+        Datos_basicos,
+        on_delete=models.CASCADE,
+        to_field="cedula",
+        db_column="cedula_profesor",
+        blank=True,
+        null=True
+    )  # CLAVE FORANEA
+
+## @class listado_estudiantes
+# @brief Modelo que almacena el listado de estudiantes, incluyendo su materia y cohorte.
 class listado_estudiantes(models.Model):
     """
     @brief Modelo que almacena el listado de estudiantes, incluyendo su materia y cohorte.
-    
-    Relaciona a los estudiantes con las materias y cohorte correspondientes.
     """
     cedula_estudiante = models.ForeignKey(
         Datos_basicos,
@@ -224,7 +265,17 @@ class listado_estudiantes(models.Model):
     ape_profesor_materia = models.TextField(blank=True, null=True)
     nota = models.IntegerField(blank=True, null=True)
 
+    codplanificacion = models.ForeignKey(
+        PlanificacionProfesor, # type: ignore
+        on_delete=models.CASCADE,
+        to_field="codplanificacion",
+        db_column="codplanificacion",
+        blank=True, null=True
+    )  # CLAVE FORANEA
 
+
+## @class profesores
+# @brief Modelo que almacena la información de los profesores.
 class profesores(models.Model):
     """
     @brief Modelo que almacena la información de los profesores.
@@ -248,7 +299,8 @@ class profesores(models.Model):
         null=True,  # Cambiar a null=True para permitir valores nulos
     )  # CLAVE FORANEA
 
-
+## @class tabla_pagos
+# @brief Modelo que almacena la información sobre los pagos realizados por los estudiantes.
 class tabla_pagos(models.Model):
     """
     @brief Modelo que almacena la información sobre los pagos realizados por los estudiantes.
@@ -275,7 +327,8 @@ class tabla_pagos(models.Model):
         """
         return self.nombre
 
-
+## @class tabla_solicitudes
+# @brief Modelo que almacena la información sobre las solicitudes de los estudiantes.
 class tabla_solicitudes(models.Model):
     """
     @brief Modelo que almacena la información sobre las solicitudes de los estudiantes.
