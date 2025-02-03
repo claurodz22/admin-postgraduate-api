@@ -21,6 +21,10 @@
 # @see APIView
 #
 
+
+"""
+------------------CLASE: LISTADOS COHORTE---------------------
+"""
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -59,6 +63,9 @@ class CohorteListAPIView(APIView):
 
 
 
+"""
+------------------CLASE: PLANIFICACION PROFESOR---------------------
+"""
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status

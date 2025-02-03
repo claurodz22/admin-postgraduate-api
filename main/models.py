@@ -307,6 +307,12 @@ class tabla_pagos(models.Model):
     
     Relaciona los pagos con el estudiante y proporciona detalles sobre el pago.
     """
+    ESTADOS_PAGO = [
+        ("Pendiente", "Pendiente"),
+        ("Confirmado", "Confirmado"),
+        ("Negado", "Negado"),
+    ]
+
     cedula_responsable = models.ForeignKey(
         Datos_basicos,
         on_delete=models.CASCADE,
@@ -320,12 +326,14 @@ class tabla_pagos(models.Model):
     monto_pago = models.IntegerField(null=False)
     nombre_estudiante = models.TextField(blank=True, null=True)
     apellido_estudiante = models.TextField(blank=True, null=True)
+    estado_pago = models.CharField(max_length=10, choices=ESTADOS_PAGO, default="Pendiente")
 
     def __str__(self):
         """
         @brief Representación en string del pago, utilizando el nombre del estudiante.
         """
-        return self.nombre
+        return f"{self.nombre_estudiante} - {self.estado_pago}"
+
 
 ## @class tabla_solicitudes
 # @brief Modelo que almacena la información sobre las solicitudes de los estudiantes.
