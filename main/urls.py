@@ -21,7 +21,7 @@
 
 
 from django.urls import path
-from .views import ListadoEstudiantes,CohorteListAPIView, PlanificacionProfesorAPIView, ProfMaterias, login_profesor, verificar_codigo_cohorte, generar_codigo_cohorte, PagosListAPIView, DatosBasicosCreateView, admin_login, SolicitudesListAPIView, BuscarCedulaEstView, AlmacenarDatosEstView 
+from .views import ListadoEstudiantes,CohorteListAPIView, MateriasPensumAPIView, AsignarProfesorMateriaView, ProfesoresAPIView, PlanificacionProfesorAPIView, ProfMaterias, login_profesor, verificar_codigo_cohorte, generar_codigo_cohorte, PagosListAPIView, DatosBasicosCreateView, admin_login, SolicitudesListAPIView, BuscarCedulaEstView, AlmacenarDatosEstView 
 from . import views
 from .views import UserInfoView
 from rest_framework_simplejwt.views import (
@@ -38,6 +38,14 @@ from rest_framework_simplejwt.views import (
 # 
 # @example La ruta 'http://127.0.0.1:8000/api/pagos/' accede a los pagos.
 urlpatterns = [
+
+    path('asignar-profesor-materia/', AsignarProfesorMateriaView.as_view(), name='asignar_profesor_materia'),
+
+
+    path('listado-materias/', MateriasPensumAPIView.as_view(), name="listado-materias"),
+
+    path('listado-profesores/', ProfesoresAPIView.as_view(), name="listado-profesores"),
+    
     ## @route /profe-materias/
     # @brief Ruta para obtener las materias de un profesor.
     # @note Se requiere autenticación para acceder a esta ruta.

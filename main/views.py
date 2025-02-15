@@ -21,6 +21,130 @@
 # @see APIView
 #
 
+from rest_framework import status
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from .models import AsignarProfesorMateria
+from .serializers import AsignarProfesorMateriaSerializer
+
+class AsignarProfesorMateriaView(APIView):
+    """
+    Vista para asignar un profesor a una materia y listar asignaciones.
+    """
+
+    def get(self, request):
+        """
+        Obtener todas las asignaciones de profesores a materias.
+        """
+        asignaciones = AsignarProfesorMateria.objects.all()
+        serializer = AsignarProfesorMateriaSerializer(asignaciones, many=True)
+        return Response(serializer.data)
+
+    def post(self, request):
+        """
+        Crear nuevas asignaciones de profesor a materia.
+        """
+        planning_data = request.data.get('planning', [])
+        if not planning_data:
+            return Response({"detail": "No se proporcionaron datos de planificación."}, status=status.HTTP_400_BAD_REQUEST)
+
+        created_assignments = []
+        errors = []
+
+        for item in planning_data:
+            serializer = AsignarProfesorMateriaSerializer(data=item)
+            if serializer.is_valid():
+                serializer.save()
+                created_assignments.append(serializer.data)
+            else:
+                errors.append(serializer.errors)
+
+        if errors:
+            return Response({"errors": errors}, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response({"created": created_assignments}, status=status.HTTP_201_CREATED)
+
+
+"""
+----------- CLASE: MATERIAS PENSUM ----------------
+"""
+from rest_framework import generics, status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from .models import materias_pensum
+from .serializers import MateriasPensumSerializer
+
+class MateriasPensumAPIView(APIView):
+    """
+    API View para listar y registrar materias del pensum de cada maestría.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """
+        Obtiene la lista de todas las materias del pensum.
+        """
+        materias = materias_pensum.objects.all()
+        serializer = MateriasPensumSerializer(materias, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+    def post(self, request):
+        """
+        Crea una nueva materia en el pensum.
+        """
+        serializer = MateriasPensumSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+"""
+---------------CLASE: PROFESORES-------------------
+"""
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from .models import profesores
+from .serializers import ProfesoresSerializer
+
+class ProfesoresAPIView(APIView):
+    """
+    @brief Clase que gestiona los profesores mediante solicitudes HTTP.
+    Esta clase permite recuperar (GET) o crear (POST) registros de profesores.
+    """
+
+    def get(self, request):
+        """
+        @brief Recupera todos los profesores registrados en la base de datos.
+        @param request Objeto HTTP Request.
+        @return Response Objeto HTTP Response con la lista de profesores en formato JSON.
+        """
+        Profes = profesores.objects.all()  # Recupera todos los registros de profesores
+        print(profesores)
+        serializer = ProfesoresSerializer(Profes, many=True)  # Serializa los datos para su retorno en formato JSON
+    
+        return Response(serializer.data)
+
+    def post(self, request):
+        """
+        @brief Crea un nuevo registro de profesor en la base de datos.
+        @param request Objeto HTTP Request que contiene los datos del nuevo profesor en formato JSON.
+        @return Response Objeto HTTP Response:
+            - Si los datos son válidos, retorna el profesor creado y un código de estado 201 (CREATED).
+            - Si los datos son inválidos, retorna los errores de validación y un código de estado 400 (BAD REQUEST).
+        """
+        serializer = ProfesoresSerializer(data=request.data)  # Deserializa los datos enviados en la solicitud
+        if serializer.is_valid():  # Valida los datos recibidos
+            serializer.save()  # Guarda el nuevo registro en la base de datos
+            return Response(serializer.data, status=status.HTTP_201_CREATED)  # Retorna el registro creado
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)  # Retorna errores si la validación falla
+
+
+
 
 """
 ------------------CLASE: LISTADOS COHORTE---------------------

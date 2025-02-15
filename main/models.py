@@ -95,39 +95,6 @@ class estudiante_datos(models.Model):
     )
     carrera = models.TextField(null=False)
 
-## @class Cohorte
-# @brief Modelo que almacena la información de los cohorte de estudiantes.
-class Cohorte(models.Model):
-    """
-    @brief Modelo que almacena la información de los cohorte de estudiantes.
-    
-    Define las opciones para los tipos de maestría y sedes de los cohorte.
-    Incluye fechas de inicio y fin del cohorte.
-    """
-    # Definir los posibles valores para 'tipo_maestria' y 'sede_cohorte'
-    TIPO_MAESTRIA_CHOICES = [
-        ('GG', 'Cs Administrativas / Gerencia General (GG)'),
-        ('FI', 'Cs Administrativas / Finanzas (FI)'),
-        ('RH', 'Cs Administrativas / Gerencia de Recursos Humanos (RRHH)')
-    ]
-
-    SEDE_CHOICES = [
-        ('barcelona', 'Barcelona'),
-        ('cantaura', 'Cantaura')
-    ]
-
-    codigo_cohorte = models.TextField(primary_key=True)
-    fecha_inicio = models.DateTimeField(null=False)
-    fecha_fin = models.DateTimeField(null=False)
-    sede_cohorte = models.CharField(max_length=50, choices=SEDE_CHOICES, null=False)
-    tipo_maestria = models.CharField(max_length=2, choices=TIPO_MAESTRIA_CHOICES, null=False, blank=True)
-
-    def __str__(self):
-        """
-        @brief Representación en string del cohorte, incluyendo código, tipo de maestría y sede.
-        """
-        return f"Cohorte {self.codigo_cohorte} - {self.tipo_maestria} ({self.sede_cohorte})"
-
 ## @class roles
 # @brief Modelo que define los roles de los usuarios en el sistema.
 class roles(models.Model):
@@ -166,6 +133,39 @@ class datos_login(models.Model):
         """
         return True
 
+## @class Cohorte
+# @brief Modelo que almacena la información de los cohorte de estudiantes.
+class Cohorte(models.Model):
+    """
+    @brief Modelo que almacena la información de los cohorte de estudiantes.
+    
+    Define las opciones para los tipos de maestría y sedes de los cohorte.
+    Incluye fechas de inicio y fin del cohorte.
+    """
+    # Definir los posibles valores para 'tipo_maestria' y 'sede_cohorte'
+    TIPO_MAESTRIA_CHOICES = [
+        ('GG', 'Cs Administrativas / Gerencia General (GG)'),
+        ('FI', 'Cs Administrativas / Finanzas (FI)'),
+        ('RH', 'Cs Administrativas / Gerencia de Recursos Humanos (RRHH)')
+    ]
+
+    SEDE_CHOICES = [
+        ('barcelona', 'Barcelona'),
+        ('cantaura', 'Cantaura')
+    ]
+
+    codigo_cohorte = models.TextField(primary_key=True)
+    fecha_inicio = models.DateTimeField(null=False)
+    fecha_fin = models.DateTimeField(null=False)
+    sede_cohorte = models.CharField(max_length=50, choices=SEDE_CHOICES, null=False)
+    tipo_maestria = models.CharField(max_length=2, choices=TIPO_MAESTRIA_CHOICES, null=False, blank=True)
+
+    def __str__(self):
+        """
+        @brief Representación en string del cohorte, incluyendo código, tipo de maestría y sede.
+        """
+        return f"Cohorte {self.codigo_cohorte} - {self.tipo_maestria} ({self.sede_cohorte})"
+
 ## @class materias_pensum
 # @brief Modelo que almacena información sobre las materias del pensum de cada maestría.
 class materias_pensum(models.Model):
@@ -183,18 +183,45 @@ class materias_pensum(models.Model):
     )  # CLAVE FORANEA
 
     nombre_materia = models.TextField(null=False)
-    nom_profesor_materia = models.TextField(blank=True, null=True)
-    ape_profesor_materia = models.TextField(blank=True, null=True)
+    
+class AsignarProfesorMateria(models.Model):
+    cod_materia = models.ForeignKey(
+        materias_pensum,
+        on_delete=models.CASCADE,
+        to_field="cod_materia",  # Añadir coma aquí
+        db_column="cod_materia",  # La columna de la base de datos, corregido el typo de "db_colum"
+        blank=True,
+        null=True
+    )
+
+    nom_materia = models.TextField(null=False, blank=True)
 
     cedula_profesor = models.ForeignKey(
         Datos_basicos,
         on_delete=models.CASCADE,
         to_field="cedula",
-        db_column="cedula_profesor",
+        db_column="cedula_profesor",  # Asegurarse que `db_column` esté bien escrito
         blank=True,
         null=True
     )  # CLAVE FORANEA
 
+    nombre_profesor = models.TextField(blank=True, null=True)
+    apellido_profesor = models.TextField(blank=True, null=True)
+
+    fecha_inicio = models.DateTimeField(null=False)
+    fecha_fin = models.DateTimeField(null=False)
+
+    codigo_cohorte =  models.ForeignKey(
+        Cohorte,
+        on_delete=models.CASCADE,
+        to_field="codigo_cohorte",  # Añadir coma aquí
+        db_column="codigo_cohorte",  # Corregir "db_colum" por "db_column"
+        blank=True,
+        null=True
+    )
+
+
+    
 class PlanificacionProfesor(models.Model):
     """
     @brief Modelo que almacena la planificación de un profesor, incluyendo actividades y porcentaje.
@@ -228,6 +255,8 @@ class PlanificacionProfesor(models.Model):
         blank=True,
         null=True
     )  # CLAVE FORANEA
+
+    nombre_materia = models.TextField(null=False, blank=True)
 
 ## @class listado_estudiantes
 # @brief Modelo que almacena el listado de estudiantes, incluyendo su materia y cohorte.

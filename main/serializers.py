@@ -96,6 +96,11 @@ class RolesSerializer(serializers.ModelSerializer):
         model = models.roles
         fields = '__all__'
 
+
+class AsignarProfesorMateriaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = models.AsignarProfesorMateria
+        fields = '__all__'
 ## @class DatosLoginSerializer
 # @brief Serializa el modelo `datos_login`.
 # 
