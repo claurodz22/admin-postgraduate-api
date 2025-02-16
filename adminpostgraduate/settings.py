@@ -16,7 +16,7 @@ import os
 
 ##
 # @brief Configuración de la ruta base del proyecto.
-# 
+#
 # `BASE_DIR` define la ruta base del proyecto Django, que se utiliza para construir rutas relativas dentro del proyecto.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -24,7 +24,7 @@ from dotenv import load_dotenv
 
 ##
 # @brief Cargar variables de entorno desde un archivo `.env`.
-# 
+#
 # Las variables de entorno, como las credenciales de la base de datos, se cargan desde el archivo `.env.example` que se
 # encuentra en la ruta `docker/.env.example`. Esto ayuda a mantener las configuraciones sensibles fuera del código fuente.
 ENV_PATH = BASE_DIR / "docker" / ".env.example"
@@ -32,10 +32,10 @@ load_dotenv(dotenv_path=ENV_PATH)
 
 ##
 # @brief Configuración de seguridad y modo de desarrollo.
-# 
+#
 # Se definen configuraciones clave para la seguridad, como la clave secreta del proyecto y el modo de depuración.
 SECRET_KEY = "django-insecure-5)c%-!zyumlks-vp5gs2e_ipn1v#8+wq3vsftnt$&c_x(1o70l"
-
+APPEND_SLASH = False
 # Activa o desactiva el modo de depuración. Nunca debe estar habilitado en producción.
 DEBUG = True
 
@@ -64,7 +64,7 @@ INSTALLED_APPS = [
 
 ##
 # @brief Configuración de CORS (Cross-Origin Resource Sharing).
-# 
+#
 # Permite que todos los orígenes puedan acceder a los recursos de la API. Esto se utiliza principalmente durante el desarrollo
 # cuando se trabaja con aplicaciones frontend que se ejecutan en dominios diferentes.
 CORS_ALLOW_ALL_ORIGINS = True
@@ -72,7 +72,7 @@ CORS_ALLOW_CREDENTIALS = True
 
 ##
 # @brief Configuración del middleware.
-# 
+#
 # `MIDDLEWARE` define la cadena de middleware que se ejecuta para cada solicitud. Cada componente en la lista procesa la
 # solicitud antes de pasarla al siguiente middleware.
 MIDDLEWARE = [
@@ -88,14 +88,14 @@ MIDDLEWARE = [
 
 ##
 # @brief Configuración de URLs.
-# 
+#
 # `ROOT_URLCONF` define el archivo que maneja las URLs del proyecto. Este archivo se utiliza para enrutar solicitudes
 # hacia vistas específicas en el proyecto.
 ROOT_URLCONF = "adminpostgraduate.urls"
 
 ##
 # @brief Configuración de plantillas.
-# 
+#
 # La configuración de `TEMPLATES` permite la renderización de vistas HTML usando el sistema de plantillas de Django.
 TEMPLATES = [
     {
@@ -115,7 +115,7 @@ TEMPLATES = [
 
 ##
 # @brief Configuración WSGI.
-# 
+#
 # Define la aplicación WSGI que se utiliza para ejecutar el servidor en producción.
 WSGI_APPLICATION = "adminpostgraduate.wsgi.application"
 
@@ -126,7 +126,9 @@ WSGI_APPLICATION = "adminpostgraduate.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql_psycopg2",  # Motor de base de datos PostgreSQL
-        "NAME": os.getenv("POSTGRES_DB"),  # Nombre de la base de datos (obtenido desde las variables de entorno)
+        "NAME": os.getenv(
+            "POSTGRES_DB"
+        ),  # Nombre de la base de datos (obtenido desde las variables de entorno)
         "USER": os.getenv("POSTGRES_USER"),  # Usuario de la base de datos
         "PASSWORD": os.getenv("POSTGRES_PASSWORD"),  # Contraseña de la base de datos
         "HOST": os.getenv("POSTGRES_HOST"),  # Dirección del host de la base de datos
@@ -140,7 +142,9 @@ DATABASES = {
 # Django proporciona una serie de validadores de contraseñas para mejorar la seguridad, asegurando que las contraseñas
 # de los usuarios sean lo suficientemente fuertes.
 AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
+    },
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
@@ -173,11 +177,11 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # Configura Django Rest Framework para utilizar un esquema automático de OpenAPI y una clase de autenticación personalizada.
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",  # Generación automática de esquemas OpenAPI
-    'DEFAULT_AUTHENTICATION_CLASSES': [
-        'main.authentication.CustomJWTAuthentication',  # Autenticación personalizada basada en JWT
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "main.authentication.CustomJWTAuthentication",  # Autenticación personalizada basada en JWT
     ],
-    'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.IsAuthenticated',  # Requiere que el usuario esté autenticado
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",  # Requiere que el usuario esté autenticado
     ],
 }
 
@@ -188,9 +192,11 @@ REST_FRAMEWORK = {
 from datetime import timedelta
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),  # Duración del access token (30 minutos)
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),    # Duración del refresh token (1 día)
-    'ROTATE_REFRESH_TOKENS': False,                  # No rota los tokens de refresco
-    'BLACKLIST_AFTER_ROTATION': True,                # Invalida los tokens de refresco rotados
-    'UPDATE_LAST_LOGIN': False,                      # No actualiza la fecha del último acceso del usuario
+    "ACCESS_TOKEN_LIFETIME": timedelta(
+        minutes=60
+    ),  # Duración del access token (30 minutos)
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=1),  # Duración del refresh token (1 día)
+    "ROTATE_REFRESH_TOKENS": False,  # No rota los tokens de refresco
+    "BLACKLIST_AFTER_ROTATION": True,  # Invalida los tokens de refresco rotados
+    "UPDATE_LAST_LOGIN": False,  # No actualiza la fecha del último acceso del usuario
 }
