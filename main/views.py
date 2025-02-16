@@ -1149,11 +1149,11 @@ class ProfMaterias(APIView):
             # Serializar los datos del usuario utilizando el serializador de login
             serializedUser = DatosLoginSerializer(user).data
             # Buscar las materias asociadas al profesor usando la cédula
-            datos_usuario = materias_pensum.objects.filter(
+            materias = materias_pensum.objects.filter(
                 cedula_profesor=serializedUser["cedula_usuario"]
             )
             # Serializar los datos de las materias
-            serializer = MateriasPensumSerializer(datos_usuario, many=True)
+            serializer = MateriasPensumSerializer(materias, many=True)
             print(type(serializer.data))
             return Response(serializer.data, status=200)
 

@@ -29,6 +29,10 @@ from rest_framework_simplejwt.views import (
     TokenRefreshView,
 )
 
+from rest_framework import routers
+
+router = routers.DefaultRouter()
+router.register("maestrias", views.DatosMaestriaViewSet)
 ## @brief Rutas de la API para el acceso a los recursos de la aplicación.
 # Estas rutas permiten a los usuarios interactuar con los recursos de la aplicación, como el login de administradores y
 # profesores, la obtención de datos básicos y la verificación de códigos de cohorte.
@@ -148,4 +152,4 @@ urlpatterns = [
         views.DatosMaestriaViewSet.as_view({"get": "list"}),
         name="datos-maestria",
     ),
-]
+] + router.urls
