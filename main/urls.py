@@ -143,4 +143,9 @@ urlpatterns = [
     path(
         "datosbasicos/", views.DatosBasicosCreateView.as_view(), name="agregar_usuario"
     ),
+    path(
+        "datos-maestria/",
+        views.DatosMaestriaViewSet.as_view({"get": "list"}),
+        name="datos-maestria",
+    ),
 ]

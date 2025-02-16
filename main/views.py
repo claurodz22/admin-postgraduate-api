@@ -161,10 +161,19 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from .models import Cohorte, Roles
-from .serializers import CohorteSerializer
+from .serializers import CohorteSerializer, DatosMaestriaSerializer
 
 from rest_framework import permissions
 from rest_framework.exceptions import PermissionDenied
+
+
+class IsPublic(permissions.BasePermission):
+    """
+    Permiso personalizado que permite el acceso solo a usuarios con rol ...
+    """
+
+    def has_permission(self, request, view):
+        return True
 
 
 class IsProfesor(permissions.BasePermission):
@@ -824,9 +833,53 @@ class BuscarCedulaEstView(APIView):
 """
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework import viewsets
 from .models import estudiante_datos, datos_maestria
 from .serializers import EstudianteDatosSerializer
 from rest_framework.views import APIView
+
+
+class DatosMaestriaViewSet(viewsets.ModelViewSet):
+    serializer_class = DatosMaestriaSerializer
+    queryset = datos_maestria.objects.all()
+    permission_classes = [IsPublic]
+
+    # @action(['POST'], detail=True, url_path='set-on-vacation')
+    # def set_on_vacation(self, request, pk):
+    #     doctor = self.get_object()
+    #     doctor.is_on_vacation = True
+    #     doctor.save()
+    #     return Response({"status": "El doctor está en vacaciones"})
+
+    # @action(['POST'], detail=True, url_path='set-off-vacation')
+    # def set_off_vacation(self, request, pk):
+    #     doctor = self.get_object()
+    #     doctor.is_on_vacation = False
+    #     doctor.save()
+    #     return Response({"status": "El doctor NO está en vacaciones"})
+
+    # @action(['POST', 'GET'], detail=True, serializer_class=AppointmentSerializer)
+    # def appointments(self, request, pk):
+    #     doctor = self.get_object()
+
+    #     if request.method == 'POST':
+    #         data = request.data.copy()
+    #         data['doctor'] = doctor.id
+    #         serializer = AppointmentSerializer(data=data)
+    #         serializer.is_valid(raise_exception=True)
+    #         serializer.save()
+    #         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    #     if request.method == 'GET':
+    #         appointments = Appointment.objects.filter(doctor=doctor)
+    #         serializer = AppointmentSerializer(appointments, many=True)
+    #         return Response(serializer.data)
+
+    # @action(['POST'], detail=True, url_path='create')
+    # def create_new_doctor(self, request, pk):
+    #     user = User.objects.create_user("john", "lennon@thebeatles.com", "johnpassword")
+
+    #     return Response({"status": "El doctor está en vacaciones"})
 
 
 class AlmacenarDatosEstView(APIView):
