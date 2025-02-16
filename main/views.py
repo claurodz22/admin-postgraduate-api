@@ -26,6 +26,7 @@ from rest_framework.response import Response
 from .models import AsignarProfesorMateria
 from .serializers import AsignarProfesorMateriaSerializer
 
+
 class AsignarProfesorMateriaView(APIView):
     """
     @class AsignarProfesorMateriaView
@@ -39,6 +40,7 @@ class AsignarProfesorMateriaView(APIView):
         @return Response con los datos de las asignaciones.
         """
         asignaciones = AsignarProfesorMateria.objects.all()
+        # serializer = AsignarProfesorMateriaSerializer(asignaciones, many=True, context={'resolve_relation': False})
         serializer = AsignarProfesorMateriaSerializer(asignaciones, many=True)
         return Response(serializer.data)
 
@@ -48,9 +50,12 @@ class AsignarProfesorMateriaView(APIView):
         @param request Petición HTTP con los datos de planificación.
         @return Response con las asignaciones creadas o errores.
         """
-        planning_data = request.data.get('planning', [])
+        planning_data = request.data.get("planning", [])
         if not planning_data:
-            return Response({"detail": "No se proporcionaron datos de planificación."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "No se proporcionaron datos de planificación."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         created_assignments = []
         errors = []
@@ -65,8 +70,10 @@ class AsignarProfesorMateriaView(APIView):
 
         if errors:
             return Response({"errors": errors}, status=status.HTTP_400_BAD_REQUEST)
-        
-        return Response({"created": created_assignments}, status=status.HTTP_201_CREATED)
+
+        return Response(
+            {"created": created_assignments}, status=status.HTTP_201_CREATED
+        )
 
 
 # ----------- CLASE: MATERIAS PENSUM ----------------
@@ -76,6 +83,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from .models import materias_pensum
 from .serializers import MateriasPensumSerializer
+
 
 class MateriasPensumAPIView(APIView):
     """
@@ -117,6 +125,7 @@ from rest_framework import status
 from .models import profesores
 from .serializers import ProfesoresSerializer
 
+
 class ProfesoresAPIView(APIView):
     """
     @brief Clase que gestiona los profesores mediante solicitudes HTTP.
@@ -131,8 +140,10 @@ class ProfesoresAPIView(APIView):
         """
         Profes = profesores.objects.all()  # Recupera todos los registros de profesores
         print(profesores)
-        serializer = ProfesoresSerializer(Profes, many=True)  # Serializa los datos para su retorno en formato JSON
-    
+        serializer = ProfesoresSerializer(
+            Profes, many=True
+        )  # Serializa los datos para su retorno en formato JSON
+
         return Response(serializer.data)
 
     def post(self, request):
@@ -143,13 +154,17 @@ class ProfesoresAPIView(APIView):
             - Si los datos son válidos, retorna el profesor creado y un código de estado 201 (CREATED).
             - Si los datos son inválidos, retorna los errores de validación y un código de estado 400 (BAD REQUEST).
         """
-        serializer = ProfesoresSerializer(data=request.data)  # Deserializa los datos enviados en la solicitud
+        serializer = ProfesoresSerializer(
+            data=request.data
+        )  # Deserializa los datos enviados en la solicitud
         if serializer.is_valid():  # Valida los datos recibidos
             serializer.save()  # Guarda el nuevo registro en la base de datos
-            return Response(serializer.data, status=status.HTTP_201_CREATED)  # Retorna el registro creado
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)  # Retorna errores si la validación falla
-
-
+            return Response(
+                serializer.data, status=status.HTTP_201_CREATED
+            )  # Retorna el registro creado
+        return Response(
+            serializer.errors, status=status.HTTP_400_BAD_REQUEST
+        )  # Retorna errores si la validación falla
 
 
 """
@@ -201,7 +216,7 @@ class CohorteListAPIView(APIView):
     Esta clase permite recuperar (GET) o crear (POST) registros de cohortes.
     """
 
-    permission_classes = [permissions.IsAuthenticated, IsProfesor]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         """
@@ -1148,9 +1163,13 @@ class ProfMaterias(APIView):
             print(type(user))
             # Serializar los datos del usuario utilizando el serializador de login
             serializedUser = DatosLoginSerializer(user).data
+
+            profesor = profesores.objects.get(
+                ci_profesor=serializedUser["cedula_usuario"]
+            )
             # Buscar las materias asociadas al profesor usando la cédula
             materias = materias_pensum.objects.filter(
-                cedula_profesor=serializedUser["cedula_usuario"]
+                cod_maestria=profesor.cod_maestria_prof
             )
             # Serializar los datos de las materias
             serializer = MateriasPensumSerializer(materias, many=True)

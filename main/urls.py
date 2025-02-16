@@ -32,7 +32,7 @@ from rest_framework_simplejwt.views import (
 from rest_framework import routers
 
 router = routers.DefaultRouter()
-router.register("maestrias", views.DatosMaestriaViewSet)
+router.register("maestrias", DatosMaestriaViewSet)
 ## @brief Rutas de la API para el acceso a los recursos de la aplicación.
 # Estas rutas permiten a los usuarios interactuar con los recursos de la aplicación, como el login de administradores y
 # profesores, la obtención de datos básicos y la verificación de códigos de cohorte.
@@ -96,7 +96,7 @@ urlpatterns = [
     # @see verificar_codigo_cohorte
     path(
         "verificar-codigo-cohorte/",
-        views.verificar_codigo_cohorte,
+        verificar_codigo_cohorte,
         name="verificar_codigo_cohorte",
     ),
     ## @route /cohorte-generar-codigo/
@@ -104,7 +104,7 @@ urlpatterns = [
     # @see generar_codigo_cohorte
     path(
         "cohorte-generar-codigo/",
-        views.generar_codigo_cohorte,
+        generar_codigo_cohorte,
         name="generar_codigo_cohorte",
     ),
     ## @route /listado_estudiantes/
@@ -144,12 +144,10 @@ urlpatterns = [
     ## @route /datosbasicos/
     # @brief Ruta para agregar un nuevo usuario con datos básicos.
     # @see DatosBasicosCreateView
-    path(
-        "datosbasicos/", views.DatosBasicosCreateView.as_view(), name="agregar_usuario"
-    ),
+    path("datosbasicos/", DatosBasicosCreateView.as_view(), name="agregar_usuario"),
     path(
         "datos-maestria/",
-        views.DatosMaestriaViewSet.as_view({"get": "list"}),
+        DatosMaestriaViewSet.as_view({"get": "list"}),
         name="datos-maestria",
     ),
 ] + router.urls
