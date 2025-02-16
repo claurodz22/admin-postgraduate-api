@@ -21,7 +21,7 @@
 
 
 from django.urls import path
-from .views import ListadoEstudiantes,CohorteListAPIView, MateriasPensumAPIView, AsignarProfesorMateriaView, ProfesoresAPIView, PlanificacionProfesorAPIView, ProfMaterias, login_profesor, verificar_codigo_cohorte, generar_codigo_cohorte, PagosListAPIView, DatosBasicosCreateView, admin_login, SolicitudesListAPIView, BuscarCedulaEstView, AlmacenarDatosEstView 
+from .views import *
 from . import views
 from .views import UserInfoView
 from rest_framework_simplejwt.views import (
@@ -38,23 +38,42 @@ from rest_framework_simplejwt.views import (
 # 
 # @example La ruta 'http://127.0.0.1:8000/api/pagos/' accede a los pagos.
 urlpatterns = [
-
+   ## @route /asignar-profesor-materia/
+    # @brief Ruta para asignar un profesor a una materia.
+    # @note Permite vincular a un profesor con una materia específica dentro del sistema.
+    # @see AsignarProfesorMateriaView
     path('asignar-profesor-materia/', AsignarProfesorMateriaView.as_view(), name='asignar_profesor_materia'),
 
-
+    ## @route /listado-materias/
+    # @brief Ruta para obtener el listado de materias disponibles.
+    # @note Devuelve una lista con todas las materias registradas en el sistema.
+    # @see MateriasPensumAPIView
     path('listado-materias/', MateriasPensumAPIView.as_view(), name="listado-materias"),
 
+    ## @route /listado-profesores/
+    # @brief Ruta para obtener el listado de profesores registrados.
+    # @note Devuelve una lista con los datos de los profesores disponibles en el sistema.
+    # @see ProfesoresAPIView
     path('listado-profesores/', ProfesoresAPIView.as_view(), name="listado-profesores"),
-    
+
+    ## @route /cohortes/
+    # @brief Ruta para obtener la lista de cohortes disponibles.
+    # @note Devuelve la información de los cohortes registrados en el sistema.
+    # @see CohorteListAPIView
+    path('cohortes/', CohorteListAPIView.as_view(), name='cohortes'),
+
+    ## @route /profe-plan/
+    # @brief Ruta para gestionar la planificación de los profesores.
+    # @note Permite registrar y consultar la planificación académica de los profesores.
+    # @see PlanificacionProfesorAPIView
+    path('profe-plan/', PlanificacionProfesorAPIView.as_view(), name='profe-plan'),
+
     ## @route /profe-materias/
     # @brief Ruta para obtener las materias de un profesor.
     # @note Se requiere autenticación para acceder a esta ruta.
     # @see ProfMaterias
     path('profe-materias/', ProfMaterias.as_view(), name='profe-materias'),
 
-    path('cohortes/', CohorteListAPIView.as_view(), name='cohortes'),
-
-    path('profe-plan/', PlanificacionProfesorAPIView.as_view(), name='profe-plan'),
         
     ## @route /api/token/
     # @brief Ruta para obtener un token de acceso.

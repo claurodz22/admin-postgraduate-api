@@ -9,25 +9,9 @@ from django.db import models
 # Los modelos son utilizados para la interacción con la base de datos en Django, utilizando 
 # PostgreSQL como base de datos para la persistencia de datos.
 #
-# Los modelos en este archivo incluyen:
-# - `Datos_basicos`: Almacena información básica de los usuarios (estudiantes y profesores).
-# - `datos_maestria`: Información sobre las maestrías disponibles.
-# - `estudiante_datos`: Información específica de los estudiantes.
-# - `Cohorte`: Información sobre los cohorte de estudiantes y sus características.
-# - `roles`: Define los roles de los usuarios en el sistema (e.g., estudiante, profesor).
-# - `datos_login`: Información relacionada con el acceso y autenticación de los usuarios.
-# - `materias_pensum`: Materias asociadas a las maestrías.
-# - `listado_estudiantes`: Relaciona a los estudiantes con sus materias y cohorte.
-# - `profesores`: Información específica de los profesores y sus materias.
-# - `tabla_pagos`: Almacena información sobre los pagos realizados por los estudiantes.
-# - `tabla_solicitudes`: Información relacionada con las solicitudes de los estudiantes.
-#
-# La base de datos utilizada para almacenar estos modelos es PostgreSQL.
-#
 # @see Django Models
 # @see Django ORM
 # @see PostgreSQL Database
-#
 
 ## @class Datos_basicos
 # @brief Modelo que almacena los datos básicos de los usuarios, incluyendo estudiantes y profesores.
@@ -183,16 +167,23 @@ class materias_pensum(models.Model):
     )  # CLAVE FORANEA
 
     nombre_materia = models.TextField(null=False)
-    
+  
+## @class AsignarProfesorMateria
+# @brief Modelo que asigna profesores a materias dentro de una cohorte específica.
 class AsignarProfesorMateria(models.Model):
+    """
+    @brief Modelo que asigna profesores a materias dentro de una cohorte específica.
+    
+    Relaciona un profesor con una materia, especificando su fecha de inicio y fin.
+    """
     cod_materia = models.ForeignKey(
         materias_pensum,
         on_delete=models.CASCADE,
-        to_field="cod_materia",  # Añadir coma aquí
-        db_column="cod_materia",  # La columna de la base de datos, corregido el typo de "db_colum"
+        to_field="cod_materia",
+        db_column="cod_materia",
         blank=True,
         null=True
-    )
+    )  # CLAVE FORANEA
 
     nom_materia = models.TextField(null=False, blank=True)
 
@@ -200,31 +191,32 @@ class AsignarProfesorMateria(models.Model):
         Datos_basicos,
         on_delete=models.CASCADE,
         to_field="cedula",
-        db_column="cedula_profesor",  # Asegurarse que `db_column` esté bien escrito
+        db_column="cedula_profesor",
         blank=True,
         null=True
     )  # CLAVE FORANEA
 
     nombre_profesor = models.TextField(blank=True, null=True)
     apellido_profesor = models.TextField(blank=True, null=True)
-
     fecha_inicio = models.DateTimeField(null=False)
     fecha_fin = models.DateTimeField(null=False)
 
-    codigo_cohorte =  models.ForeignKey(
+    codigo_cohorte = models.ForeignKey(
         Cohorte,
         on_delete=models.CASCADE,
-        to_field="codigo_cohorte",  # Añadir coma aquí
-        db_column="codigo_cohorte",  # Corregir "db_colum" por "db_column"
+        to_field="codigo_cohorte",
+        db_column="codigo_cohorte",
         blank=True,
         null=True
-    )
+    )  # CLAVE FORANEA
 
-
-    
+## @class PlanificacionProfesor
+# @brief Modelo que almacena la planificación de un profesor.
 class PlanificacionProfesor(models.Model):
     """
-    @brief Modelo que almacena la planificación de un profesor, incluyendo actividades y porcentaje.
+    @brief Modelo que almacena la planificación de un profesor.
+    
+    Incluye las actividades planificadas y su porcentaje de evaluación dentro de una materia y cohorte específica.
     """
     codplanificacion = models.CharField(
         primary_key=True, max_length=50, db_column="codplanificacion",
@@ -232,7 +224,7 @@ class PlanificacionProfesor(models.Model):
     actividades_planificacion = models.TextField(blank=True, null=True)
     actividades_porcentaje = models.TextField(blank=True, null=True)
     cod_materia = models.ForeignKey(
-        materias_pensum, # type: ignore
+        materias_pensum,
         on_delete=models.CASCADE,
         to_field="cod_materia",
         db_column="cod_materia",
@@ -240,7 +232,7 @@ class PlanificacionProfesor(models.Model):
     )  # CLAVE FORANEA
 
     codigo_cohorte = models.ForeignKey(
-        Cohorte, # type: ignore
+        Cohorte,
         on_delete=models.CASCADE,
         to_field="codigo_cohorte",
         db_column="codigo_cohorte",
@@ -259,10 +251,12 @@ class PlanificacionProfesor(models.Model):
     nombre_materia = models.TextField(null=False, blank=True)
 
 ## @class listado_estudiantes
-# @brief Modelo que almacena el listado de estudiantes, incluyendo su materia y cohorte.
+# @brief Modelo que almacena el listado de estudiantes inscritos en una materia y cohorte específica.
 class listado_estudiantes(models.Model):
     """
-    @brief Modelo que almacena el listado de estudiantes, incluyendo su materia y cohorte.
+    @brief Modelo que almacena el listado de estudiantes inscritos en una materia y cohorte específica.
+    
+    Contiene información sobre el estudiante, la materia y el profesor que la imparte.
     """
     cedula_estudiante = models.ForeignKey(
         Datos_basicos,
@@ -273,7 +267,7 @@ class listado_estudiantes(models.Model):
 
     nombre = models.TextField(null=False)
     apellido = models.TextField(null=False)
-
+    
     cod_materia = models.ForeignKey(
         materias_pensum,
         on_delete=models.CASCADE,
@@ -295,7 +289,7 @@ class listado_estudiantes(models.Model):
     nota = models.IntegerField(blank=True, null=True)
 
     codplanificacion = models.ForeignKey(
-        PlanificacionProfesor, # type: ignore
+        PlanificacionProfesor,
         on_delete=models.CASCADE,
         to_field="codplanificacion",
         db_column="codplanificacion",

@@ -20,7 +20,6 @@
 # @see Django Rest Framework
 # @see APIView
 #
-
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -29,12 +28,15 @@ from .serializers import AsignarProfesorMateriaSerializer
 
 class AsignarProfesorMateriaView(APIView):
     """
-    Vista para asignar un profesor a una materia y listar asignaciones.
+    @class AsignarProfesorMateriaView
+    @brief Vista para asignar un profesor a una materia y listar asignaciones.
     """
 
     def get(self, request):
         """
-        Obtener todas las asignaciones de profesores a materias.
+        @brief Obtiene todas las asignaciones de profesores a materias.
+        @param request Petición HTTP.
+        @return Response con los datos de las asignaciones.
         """
         asignaciones = AsignarProfesorMateria.objects.all()
         serializer = AsignarProfesorMateriaSerializer(asignaciones, many=True)
@@ -42,7 +44,9 @@ class AsignarProfesorMateriaView(APIView):
 
     def post(self, request):
         """
-        Crear nuevas asignaciones de profesor a materia.
+        @brief Crea nuevas asignaciones de profesor a materia.
+        @param request Petición HTTP con los datos de planificación.
+        @return Response con las asignaciones creadas o errores.
         """
         planning_data = request.data.get('planning', [])
         if not planning_data:
@@ -65,9 +69,7 @@ class AsignarProfesorMateriaView(APIView):
         return Response({"created": created_assignments}, status=status.HTTP_201_CREATED)
 
 
-"""
------------ CLASE: MATERIAS PENSUM ----------------
-"""
+# ----------- CLASE: MATERIAS PENSUM ----------------
 from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -77,14 +79,17 @@ from .serializers import MateriasPensumSerializer
 
 class MateriasPensumAPIView(APIView):
     """
-    API View para listar y registrar materias del pensum de cada maestría.
+    @class MateriasPensumAPIView
+    @brief API View para listar y registrar materias del pensum de cada maestría.
     """
 
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
         """
-        Obtiene la lista de todas las materias del pensum.
+        @brief Obtiene la lista de todas las materias del pensum.
+        @param request Petición HTTP.
+        @return Response con la lista de materias.
         """
         materias = materias_pensum.objects.all()
         serializer = MateriasPensumSerializer(materias, many=True)
@@ -92,14 +97,15 @@ class MateriasPensumAPIView(APIView):
 
     def post(self, request):
         """
-        Crea una nueva materia en el pensum.
+        @brief Crea una nueva materia en el pensum.
+        @param request Petición HTTP con los datos de la materia.
+        @return Response con la materia creada o errores de validación.
         """
         serializer = MateriasPensumSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 """
 ---------------CLASE: PROFESORES-------------------

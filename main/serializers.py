@@ -11,12 +11,20 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from . import models
 
+## @class PlanificacionProfesorSerializer
+# @brief Serializa el modelo `PlanificacionProfesor`.
+# 
+# Este serializador convierte el modelo `PlanificacionProfesor` en un formato adecuado para su transmisión en la API.
 class PlanificacionProfesorSerializer(serializers.ModelSerializer):
     """serializer"""
     class Meta:
         model = models.PlanificacionProfesor
         fields = '__all__'
 
+## @class DatosBasicosSerializer
+# @brief Serializa el modelo `Datos_basicos`.
+# 
+# Convierte el modelo `Datos_basicos` a un formato que pueda ser transmitido y manipulado fácilmente en la API.
 class DatosBasicosSerializer(serializers.ModelSerializer):
     """serializer"""
     class Meta:
