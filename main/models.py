@@ -366,6 +366,12 @@ class tabla_pagos(models.Model):
     Relaciona los pagos con el estudiante y proporciona detalles sobre el pago.
     """
 
+    class Meta:
+        # db_table = "pagos_estudiantes"  # Define el nombre de la tabla en la BD
+        # ordering = ["-fecha_pago"]  # Ordena por fecha de pago descendente
+        verbose_name = "Pago"  # Nombre en singular en el admin de Django
+        verbose_name_plural = "Pagos"
+
     ESTADOS_PAGO = [
         ("Pendiente", "Pendiente"),
         ("Confirmado", "Confirmado"),

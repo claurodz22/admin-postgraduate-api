@@ -7,6 +7,10 @@
 # ser convertidas a formatos como JSON o XML para su transmisión o almacenamiento.
 #
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from . import models
@@ -202,9 +206,38 @@ class ProfesoresSerializer(serializers.ModelSerializer):
 class TablaPagosSerializer(serializers.ModelSerializer):
     """serializer"""
 
+    # cedula_responsable = DatosBasicosSerializer()
+
     class Meta:
         model = models.tabla_pagos
         fields = "__all__"
+        # depth = 1 # para resolver automaticamente las relaciones
+        # fields = [
+        #     models.tabla_pagos.fecha_pago.name,
+        #     models.tabla_pagos.apellido_estudiante.name
+        # ]
+
+    # responsable = serializers.SerializerMethodField()
+
+    # def get_responsable(self, instance):
+    #     cedula_responsable_id = instance.cedula_responsable_id
+    #     if not cedula_responsable_id:
+    #         logger.error("cedula_responsable_id is None for instance: %s", instance)
+    #         return None
+
+    #     try:
+    #         responsable_instance = models.Datos_basicos.objects.get(
+    #             cedula=cedula_responsable_id
+    #         )
+    #         return DatosBasicosSerializer(responsable_instance).data
+    #     except models.Datos_basicos.DoesNotExist:
+    #         logger.error(
+    #             "Datos_basicos with cedula %s does not exist", cedula_responsable_id
+    #         )
+    #         return None
+    #     except Exception as e:
+    #         logger.error("An error occurred while fetching Datos_basicos: %s", str(e))
+    #         return None
 
 
 ## @class TablaSolicitudesSerializer

@@ -23,6 +23,7 @@
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from . import models
 from .models import AsignarProfesorMateria
 from .serializers import AsignarProfesorMateriaSerializer
 
@@ -114,6 +115,7 @@ class MateriasPensumAPIView(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 """
 ---------------CLASE: PROFESORES-------------------
@@ -509,6 +511,7 @@ class SolicitudesListAPIView(APIView):
 """
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.request import Request
 from .models import tabla_pagos
 from .serializers import TablaPagosSerializer
 
@@ -519,21 +522,21 @@ class PagosListAPIView(APIView):
     Esta clase permite recuperar (GET) o crear (POST) registros en la tabla de pagos.
     """
 
-    def get(self, request):
+    def get(self, request: Request):
         """
         @brief Recupera todos los pagos registrados en la base de datos.
         @param request Objeto HTTP Request.
         @return Response Objeto HTTP Response con la lista de pagos en formato JSON.
         """
-        pagos = (
-            tabla_pagos.objects.all()
-        )  # Recupera todos los registros de la tabla de pagos
+        pagos = tabla_pagos.objects.select_related(
+            # "cedula_responsable"
+        ).all()  # Recupera todos los registros de la tabla de pagos
         serializer = TablaPagosSerializer(
             pagos, many=True
         )  # Serializa los datos para su retorno en formato JSON
         return Response(serializer.data)
 
-    def post(self, request):
+    def post(self, request: Request):
         """
         @brief Crea un nuevo registro de pago en la base de datos.
         @param request Objeto HTTP Request que contiene los datos del nuevo pago en formato JSON.
@@ -1164,9 +1167,9 @@ class ProfMaterias(APIView):
             # Serializar los datos del usuario utilizando el serializador de login
             serializedUser = DatosLoginSerializer(user).data
 
-            profesor = profesores.objects.get(
-                ci_profesor=serializedUser["cedula_usuario"]
-            )
+            profesor = profesores.objects.select_related(
+                "cod_maestria_prof", "ci_profesor"
+            ).get(ci_profesor=serializedUser["cedula_usuario"])
             # Buscar las materias asociadas al profesor usando la cédula
             materias = materias_pensum.objects.filter(
                 cod_maestria=profesor.cod_maestria_prof
