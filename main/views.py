@@ -1063,6 +1063,47 @@ def login_profesor(request: Request):
         )
 
 
+@csrf_exempt
+@require_http_methods(["POST"])
+def login_estudiante(request: Request):
+    try:
+        data = json.loads(request.body)  # Cargar los datos recibidos en formato JSON
+        cedula = data.get("username")  # Obtener la cédula del profesor
+        password = data.get("password")  # Obtener la contraseña del profesor
+
+        # Buscar el usuario en la base de datos, asegurándose que sea un profesor (tipo_usuario=3)
+        user = datos_login.objects.get(cedula_usuario=cedula, tipo_usuario=2)
+
+        # Verificar si la contraseña proporcionada es correcta
+        if user.contraseña_usuario == password:
+            # Si la contraseña es correcta, generar tokens de acceso y refresco
+            refresh = RefreshToken.for_user(user)
+            return JsonResponse(
+                {
+                    "access": str(refresh.access_token),  # Token de acceso
+                    "refresh": str(refresh),  # Token de refresco
+                },
+                status=200,
+            )
+        else:
+            # Si la contraseña es incorrecta, devolver un error de autenticación
+            return JsonResponse({"error": "Contraseña invalida"}, status=401)
+
+    except Exception as e:
+
+        # TODO: hacer funcion que se implemente en todos los casos de error comunes como por ejemplo mostrar el traceback en consola.
+        # Log the error with traceback to stderr
+        traceback.print_exc(file=sys.stderr)
+
+        if isinstance(e, datos_login.DoesNotExist):
+            return JsonResponse(
+                {"error": "Usuario no encontrado o no es estudiante"}, status=401
+            )
+        return JsonResponse(
+            {"error": str(e), "traceback": traceback.format_exc()}, status=500
+        )
+
+
 """
 ----- CLASE USERINFOVIEW: PARA RECUPERAR DATOS DE USUARIO AUTENTICADO ----------
 """

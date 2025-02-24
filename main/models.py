@@ -14,6 +14,15 @@ from django.db import models
 # @see PostgreSQL Database
 
 
+from enum import Enum
+
+
+class Roles(Enum):
+    ADMIN = 1
+    ESTUDIANTE = 2
+    PROFESOR = 3
+
+
 ## @class Datos_basicos
 # @brief Modelo que almacena los datos básicos de los usuarios, incluyendo estudiantes y profesores.
 class Datos_basicos(models.Model):
@@ -118,15 +127,6 @@ class Cohorte(models.Model):
         @brief Representación en string del cohorte, incluyendo código, tipo de maestría y sede.
         """
         return f"Cohorte {self.codigo_cohorte} - {self.tipo_maestria} ({self.sede_cohorte})"
-
-
-from enum import Enum
-
-
-class Roles(Enum):
-    ADMIN = 1
-    ESTUDIANTE = 2
-    PROFESOR = 3
 
 
 ## @class roles

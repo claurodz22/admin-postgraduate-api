@@ -137,6 +137,7 @@ urlpatterns = [
     # @brief Ruta para el login de profesor.
     # @see login_profesor
     path("login_profesor/", login_profesor, name="login_profesor"),
+    path("login_estudiante/", login_estudiante, name="login_estudiante"),
     ## @route /pagos/
     # @brief Ruta para obtener la lista de pagos.
     # @see PagosListAPIView
