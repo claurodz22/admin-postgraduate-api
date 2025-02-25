@@ -23,9 +23,15 @@
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
+
+from main.permissions import IsPublic
+
 from . import models
 from .models import AsignarProfesorMateria
 from .serializers import AsignarProfesorMateriaSerializer
+
+from rest_framework import permissions
+from rest_framework.exceptions import PermissionDenied
 
 
 class AsignarProfesorMateriaView(APIView):
@@ -179,37 +185,6 @@ from rest_framework.response import Response
 from rest_framework import status
 from .models import Cohorte, Roles
 from .serializers import CohorteSerializer, DatosMaestriaSerializer
-
-from rest_framework import permissions
-from rest_framework.exceptions import PermissionDenied
-
-
-class IsPublic(permissions.BasePermission):
-    """
-    Permiso personalizado que permite el acceso solo a usuarios con rol ...
-    """
-
-    def has_permission(self, request, view):
-        return True
-
-
-class IsProfesor(permissions.BasePermission):
-    """
-    Permiso personalizado que permite el acceso solo a usuarios con rol ...
-    """
-
-    def has_permission(self, request, view):
-        # Verifica si el usuario está autenticado y tiene el rol adecuado
-        if not request.user.is_authenticated:
-            raise PermissionDenied("Usuario no autenticado")
-
-        if (
-            not getattr(request.user, "tipo_usuario", None).codigo_rol
-            == Roles.PROFESOR.value
-        ):
-            raise PermissionDenied("Recurso requiere privilegios de profesor.")
-
-        return True
 
 
 class CohorteListAPIView(APIView):
@@ -370,99 +345,6 @@ from django.http import JsonResponse
 from .models import Cohorte
 from .serializers import CohorteSerializer
 import datetime
-
-
-@api_view(["POST"])
-def generar_codigo_cohorte(request):
-    """
-    @brief Genera un código único para una nueva cohorte y la registra en la base de datos.
-    @param request Objeto HTTP Request con los datos necesarios para crear la cohorte:
-        - codigo_cohorte: Código inicial de la cohorte.
-        - fecha_inicio: Fecha de inicio de la cohorte en formato 'YYYY-MM-DD'.
-        - fecha_fin: Fecha de fin de la cohorte en formato 'YYYY-MM-DD'.
-        - sede_cohorte: Sede de la cohorte.
-        - tipo_maestria: Tipo de maestría asociada a la cohorte.
-    @return Response con el código generado si el registro fue exitoso, o JsonResponse con un error en caso contrario.
-    """
-    if request.method == "POST":
-        codigo_cohorte = request.data.get("codigo_cohorte")
-        fecha_inicio = request.data.get("fecha_inicio")
-        fecha_fin = request.data.get("fecha_fin")
-        sede_cohorte = request.data.get("sede_cohorte")
-        tipo_maestria = request.data.get("tipo_maestria")
-
-        # Función para generar un nuevo código
-        def generate_new_code(code):
-            """
-            @brief Genera un nuevo código único basado en el código proporcionado.
-            @param code Código inicial de la cohorte.
-            @return Nuevo código generado.
-            """
-            prefix = code[
-                :-6
-            ]  # Toma todo excepto los últimos 6 caracteres (ej. FIIA-2024 -> FII)
-            year = code[-4:]  # Toma los últimos 4 caracteres (el año)
-            current_letter = code[-6]  # Toma la letra actual (A, B, C, etc.)
-            next_letter = chr(ord(current_letter) + 1)  # Genera la siguiente letra
-            return f"{prefix}{next_letter}-{year}"
-
-        # Verifica si el código de cohorte ya existe
-        while Cohorte.objects.filter(codigo_cohorte=codigo_cohorte).exists():
-            codigo_cohorte = generate_new_code(codigo_cohorte)
-
-        # Crea el nuevo cohorte
-        try:
-            cohorte = Cohorte.objects.create(
-                codigo_cohorte=codigo_cohorte,
-                fecha_inicio=datetime.datetime.strptime(fecha_inicio, "%Y-%m-%d"),
-                fecha_fin=datetime.datetime.strptime(fecha_fin, "%Y-%m-%d"),
-                sede_cohorte=sede_cohorte,
-                tipo_maestria=tipo_maestria,
-            )
-            serializer = CohorteSerializer(cohorte)
-            return Response({"codigo_cohorte": codigo_cohorte}, status=201)
-
-        except Exception as e:
-            return JsonResponse({"error": str(e)}, status=400)
-
-
-@api_view(["POST"])
-def verificar_codigo_cohorte(request):
-    """
-    @brief Verifica si un código de cohorte ya existe en la base de datos y genera uno nuevo si es necesario.
-    @param request Objeto HTTP Request con los datos necesarios:
-        - codigo_cohorte: Código de cohorte a verificar.
-    @return JsonResponse indicando si el código ya existe y, en caso positivo, sugiere un nuevo código.
-    """
-    if request.method == "POST":
-        codigo_cohorte = request.data.get("codigo_cohorte")
-
-        if not codigo_cohorte:
-            return JsonResponse(
-                {"error": "Código de cohorte no proporcionado"}, status=400
-            )
-
-        # Función para generar un nuevo código
-        def generate_new_code(code):
-            """
-            @brief Genera un nuevo código único basado en el código proporcionado.
-            @param code Código inicial de la cohorte.
-            @return Nuevo código generado.
-            """
-            prefix = code[
-                :-6
-            ]  # Toma todo excepto los últimos 6 caracteres (ej. FIIA-2024 -> FII)
-            year = code[-4:]  # Toma los últimos 4 caracteres (el año)
-            current_letter = code[-6]  # Toma la letra actual (A, B, C, etc.)
-            next_letter = chr(ord(current_letter) + 1)  # Genera la siguiente letra
-            return f"{prefix}{next_letter}-{year}"
-
-        # Verifica si el código de cohorte ya existe
-        if Cohorte.objects.filter(codigo_cohorte=codigo_cohorte).exists():
-            new_code = generate_new_code(codigo_cohorte)
-            return JsonResponse({"exists": True, "new_code": new_code})
-        else:
-            return JsonResponse({"exists": False})
 
 
 """
@@ -721,54 +603,6 @@ request involucra todo lo que es proceso de https, se puede
 hacer request id, headers, o user etc 
 """
 
-
-@csrf_exempt
-@require_http_methods(["POST"])
-def admin_login(request):
-    """
-    @brief Autenticación de usuario admin utilizando nombre de usuario y contraseña.
-
-    Este endpoint permite que los administradores se autentiquen usando su nombre de usuario (cédula)
-    y contraseña. Si las credenciales son correctas, se genera un par de tokens JWT (access y refresh).
-
-    @param request Objeto HTTP Request que contiene las credenciales del usuario (nombre de usuario y contraseña) en el cuerpo de la solicitud.
-
-    @return JsonResponse Objeto HTTP Response con el siguiente comportamiento:
-    - Si las credenciales son correctas, se retornan los tokens `access` y `refresh` con un código de estado 200 (OK).
-    - Si las credenciales son incorrectas (contraseña inválida), se retorna un error con un código de estado 401 (Unauthorized).
-    - Si el usuario no existe o no es un administrador, se retorna un error con un código de estado 401 (Unauthorized).
-    """
-    import json
-
-    data = json.loads(
-        request.body
-    )  # Obtiene los datos del cuerpo de la solicitud (JSON)
-    cedula = data.get("username")  # Obtiene el nombre de usuario (cedula) del JSON
-    password = data.get("password")  # Obtiene la contraseña del JSON
-
-    try:
-        # Intenta obtener el usuario con la cédula y tipo de usuario 1 (administrador)
-        user = datos_login.objects.get(cedula_usuario=cedula, tipo_usuario=1)
-        if user.contraseña_usuario == password:  # Verifica si la contraseña es correcta
-            # Si la contraseña es correcta, genera los tokens JWT
-            refresh = RefreshToken.for_user(user)
-            return JsonResponse(
-                {
-                    "access": str(refresh.access_token),  # Token de acceso
-                    "refresh": str(refresh),  # Token de refresco
-                },
-                status=200,
-            )
-        else:
-            # Si la contraseña es incorrecta, retorna un error 401
-            return JsonResponse({"error": "Contraseña invalida"}, status=401)
-    except datos_login.DoesNotExist:
-        # Si el usuario no existe o no es un administrador, retorna un error 401
-        return JsonResponse(
-            {"error": "Usuario no encontrado o no es admin"}, status=401
-        )
-
-
 """
 --------------- CLASE: BUSCAR CEDULA PARA FORMALIZAR REGISTRO ESTUDIANTE -----------------
 """
@@ -1002,107 +836,6 @@ request involucra todo lo que es proceso de https, se puede
 hacer request id, headers, o user etc 
 """
 
-import json
-
-
-@csrf_exempt
-@require_http_methods(["POST"])
-def login_profesor(request: Request):
-    """
-    @brief Endpoint para el login de un profesor.
-
-    Este endpoint permite que un profesor inicie sesión proporcionando su cédula y contraseña.
-    Si las credenciales son correctas, se generan tokens de acceso y refresco utilizando el paquete JWT.
-    Si las credenciales son incorrectas o el usuario no es encontrado, se devuelve un mensaje de error.
-
-    @param request Objeto de la solicitud HTTP que debe contener las credenciales del usuario:
-    - username: Cédula del profesor.
-    - password: Contraseña del profesor.
-
-    @return JsonResponse Respuesta en formato JSON con los tokens de acceso y refresco si las credenciales son correctas.
-    En caso de error, devuelve un mensaje con el error correspondiente.
-    """
-
-    try:
-        print("klk")
-        data = json.loads(request.body)  # Cargar los datos recibidos en formato JSON
-        cedula = data.get("username")  # Obtener la cédula del profesor
-        password = data.get("password")  # Obtener la contraseña del profesor
-
-        # Buscar el usuario en la base de datos, asegurándose que sea un profesor (tipo_usuario=3)
-        user = datos_login.objects.get(cedula_usuario=cedula, tipo_usuario=3)
-
-        # Verificar si la contraseña proporcionada es correcta
-        if user.contraseña_usuario == password:
-            # Si la contraseña es correcta, generar tokens de acceso y refresco
-            refresh = RefreshToken.for_user(user)
-            return JsonResponse(
-                {
-                    "access": str(refresh.access_token),  # Token de acceso
-                    "refresh": str(refresh),  # Token de refresco
-                },
-                status=200,
-            )
-        else:
-            # Si la contraseña es incorrecta, devolver un error de autenticación
-            return JsonResponse({"error": "Contraseña invalida"}, status=401)
-
-    except Exception as e:
-
-        # TODO: hacer funcion que se implemente en todos los casos de error comunes como por ejemplo mostrar el traceback en consola.
-        # Log the error with traceback to stderr
-        traceback.print_exc(file=sys.stderr)
-
-        if isinstance(e, datos_login.DoesNotExist):
-            # Si no se encuentra el usuario o no es un profesor, devolver un error
-            return JsonResponse(
-                {"error": "Usuario no encontrado o no es profesor"}, status=401
-            )
-        return JsonResponse(
-            {"error": str(e), "traceback": traceback.format_exc()}, status=500
-        )
-
-
-@csrf_exempt
-@require_http_methods(["POST"])
-def login_estudiante(request: Request):
-    try:
-        data = json.loads(request.body)  # Cargar los datos recibidos en formato JSON
-        cedula = data.get("username")  # Obtener la cédula del profesor
-        password = data.get("password")  # Obtener la contraseña del profesor
-
-        # Buscar el usuario en la base de datos, asegurándose que sea un profesor (tipo_usuario=3)
-        user = datos_login.objects.get(cedula_usuario=cedula, tipo_usuario=2)
-
-        # Verificar si la contraseña proporcionada es correcta
-        if user.contraseña_usuario == password:
-            # Si la contraseña es correcta, generar tokens de acceso y refresco
-            refresh = RefreshToken.for_user(user)
-            return JsonResponse(
-                {
-                    "access": str(refresh.access_token),  # Token de acceso
-                    "refresh": str(refresh),  # Token de refresco
-                },
-                status=200,
-            )
-        else:
-            # Si la contraseña es incorrecta, devolver un error de autenticación
-            return JsonResponse({"error": "Contraseña invalida"}, status=401)
-
-    except Exception as e:
-
-        # TODO: hacer funcion que se implemente en todos los casos de error comunes como por ejemplo mostrar el traceback en consola.
-        # Log the error with traceback to stderr
-        traceback.print_exc(file=sys.stderr)
-
-        if isinstance(e, datos_login.DoesNotExist):
-            return JsonResponse(
-                {"error": "Usuario no encontrado o no es estudiante"}, status=401
-            )
-        return JsonResponse(
-            {"error": str(e), "traceback": traceback.format_exc()}, status=500
-        )
-
 
 """
 ----- CLASE USERINFOVIEW: PARA RECUPERAR DATOS DE USUARIO AUTENTICADO ----------
@@ -1223,3 +956,411 @@ class ProfMaterias(APIView):
         except materias_pensum.DoesNotExist:
             # Si no se encuentran materias asociadas, devolver un mensaje de error
             return Response({"error": "Usuario no encontrado"}, status=404)
+
+
+import json
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def admin_login(request):
+    """
+    @brief Autenticación de usuario admin utilizando nombre de usuario y contraseña.
+
+    Este endpoint permite que los administradores se autentiquen usando su nombre de usuario (cédula)
+    y contraseña. Si las credenciales son correctas, se genera un par de tokens JWT (access y refresh).
+
+    @param request Objeto HTTP Request que contiene las credenciales del usuario (nombre de usuario y contraseña) en el cuerpo de la solicitud.
+
+    @return JsonResponse Objeto HTTP Response con el siguiente comportamiento:
+    - Si las credenciales son correctas, se retornan los tokens `access` y `refresh` con un código de estado 200 (OK).
+    - Si las credenciales son incorrectas (contraseña inválida), se retorna un error con un código de estado 401 (Unauthorized).
+    - Si el usuario no existe o no es un administrador, se retorna un error con un código de estado 401 (Unauthorized).
+    """
+    import json
+
+    data = json.loads(
+        request.body
+    )  # Obtiene los datos del cuerpo de la solicitud (JSON)
+    cedula = data.get("username")  # Obtiene el nombre de usuario (cedula) del JSON
+    password = data.get("password")  # Obtiene la contraseña del JSON
+
+    try:
+        # Intenta obtener el usuario con la cédula y tipo de usuario 1 (administrador)
+        user = datos_login.objects.get(cedula_usuario=cedula, tipo_usuario=1)
+        if user.contraseña_usuario == password:  # Verifica si la contraseña es correcta
+            # Si la contraseña es correcta, genera los tokens JWT
+            refresh = RefreshToken.for_user(user)
+            return JsonResponse(
+                {
+                    "access": str(refresh.access_token),  # Token de acceso
+                    "refresh": str(refresh),  # Token de refresco
+                },
+                status=200,
+            )
+        else:
+            # Si la contraseña es incorrecta, retorna un error 401
+            return JsonResponse({"error": "Contraseña invalida"}, status=401)
+    except datos_login.DoesNotExist:
+        # Si el usuario no existe o no es un administrador, retorna un error 401
+        return JsonResponse(
+            {"error": "Usuario no encontrado o no es admin"}, status=401
+        )
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def login_profesor(request: Request):
+    """
+    @brief Endpoint para el login de un profesor.
+
+    Este endpoint permite que un profesor inicie sesión proporcionando su cédula y contraseña.
+    Si las credenciales son correctas, se generan tokens de acceso y refresco utilizando el paquete JWT.
+    Si las credenciales son incorrectas o el usuario no es encontrado, se devuelve un mensaje de error.
+
+    @param request Objeto de la solicitud HTTP que debe contener las credenciales del usuario:
+    - username: Cédula del profesor.
+    - password: Contraseña del profesor.
+
+    @return JsonResponse Respuesta en formato JSON con los tokens de acceso y refresco si las credenciales son correctas.
+    En caso de error, devuelve un mensaje con el error correspondiente.
+    """
+
+    try:
+        print("klk")
+        data = json.loads(request.body)  # Cargar los datos recibidos en formato JSON
+        cedula = data.get("username")  # Obtener la cédula del profesor
+        password = data.get("password")  # Obtener la contraseña del profesor
+
+        # Buscar el usuario en la base de datos, asegurándose que sea un profesor (tipo_usuario=3)
+        user = datos_login.objects.get(cedula_usuario=cedula, tipo_usuario=3)
+
+        # Verificar si la contraseña proporcionada es correcta
+        if user.contraseña_usuario == password:
+            # Si la contraseña es correcta, generar tokens de acceso y refresco
+            refresh = RefreshToken.for_user(user)
+            return JsonResponse(
+                {
+                    "access": str(refresh.access_token),  # Token de acceso
+                    "refresh": str(refresh),  # Token de refresco
+                },
+                status=200,
+            )
+        else:
+            # Si la contraseña es incorrecta, devolver un error de autenticación
+            return JsonResponse({"error": "Contraseña invalida"}, status=401)
+
+    except Exception as e:
+
+        # TODO: hacer funcion que se implemente en todos los casos de error comunes como por ejemplo mostrar el traceback en consola.
+        # Log the error with traceback to stderr
+        traceback.print_exc(file=sys.stderr)
+
+        if isinstance(e, datos_login.DoesNotExist):
+            # Si no se encuentra el usuario o no es un profesor, devolver un error
+            return JsonResponse(
+                {"error": "Usuario no encontrado o no es profesor"}, status=401
+            )
+        return JsonResponse(
+            {"error": str(e), "traceback": traceback.format_exc()}, status=500
+        )
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def login_estudiante(request: Request):
+    try:
+        data = json.loads(request.body)  # Cargar los datos recibidos en formato JSON
+        cedula = data.get("username")  # Obtener la cédula del profesor
+        password = data.get("password")  # Obtener la contraseña del profesor
+
+        # Buscar el usuario en la base de datos, asegurándose que sea un profesor (tipo_usuario=3)
+        user = datos_login.objects.get(cedula_usuario=cedula, tipo_usuario=2)
+
+        # Verificar si la contraseña proporcionada es correcta
+        if user.contraseña_usuario == password:
+            # Si la contraseña es correcta, generar tokens de acceso y refresco
+            refresh = RefreshToken.for_user(user)
+            return JsonResponse(
+                {
+                    "access": str(refresh.access_token),  # Token de acceso
+                    "refresh": str(refresh),  # Token de refresco
+                },
+                status=200,
+            )
+        else:
+            # Si la contraseña es incorrecta, devolver un error de autenticación
+            return JsonResponse({"error": "Contraseña invalida"}, status=401)
+
+    except Exception as e:
+
+        # TODO: hacer funcion que se implemente en todos los casos de error comunes como por ejemplo mostrar el traceback en consola.
+        # Log the error with traceback to stderr
+        traceback.print_exc(file=sys.stderr)
+
+        if isinstance(e, datos_login.DoesNotExist):
+            return JsonResponse(
+                {"error": "Usuario no encontrado o no es estudiante"}, status=401
+            )
+        return JsonResponse(
+            {"error": str(e), "traceback": traceback.format_exc()}, status=500
+        )
+
+
+@api_view(["POST"])
+def generar_codigo_cohorte(request):
+    """
+    @brief Genera un código único para una nueva cohorte y la registra en la base de datos.
+    @param request Objeto HTTP Request con los datos necesarios para crear la cohorte:
+        - codigo_cohorte: Código inicial de la cohorte.
+        - fecha_inicio: Fecha de inicio de la cohorte en formato 'YYYY-MM-DD'.
+        - fecha_fin: Fecha de fin de la cohorte en formato 'YYYY-MM-DD'.
+        - sede_cohorte: Sede de la cohorte.
+        - tipo_maestria: Tipo de maestría asociada a la cohorte.
+    @return Response con el código generado si el registro fue exitoso, o JsonResponse con un error en caso contrario.
+    """
+    if request.method == "POST":
+        codigo_cohorte = request.data.get("codigo_cohorte")
+        fecha_inicio = request.data.get("fecha_inicio")
+        fecha_fin = request.data.get("fecha_fin")
+        sede_cohorte = request.data.get("sede_cohorte")
+        tipo_maestria = request.data.get("tipo_maestria")
+
+        # Función para generar un nuevo código
+        def generate_new_code(code):
+            """
+            @brief Genera un nuevo código único basado en el código proporcionado.
+            @param code Código inicial de la cohorte.
+            @return Nuevo código generado.
+            """
+            prefix = code[
+                :-6
+            ]  # Toma todo excepto los últimos 6 caracteres (ej. FIIA-2024 -> FII)
+            year = code[-4:]  # Toma los últimos 4 caracteres (el año)
+            current_letter = code[-6]  # Toma la letra actual (A, B, C, etc.)
+            next_letter = chr(ord(current_letter) + 1)  # Genera la siguiente letra
+            return f"{prefix}{next_letter}-{year}"
+
+        # Verifica si el código de cohorte ya existe
+        while Cohorte.objects.filter(codigo_cohorte=codigo_cohorte).exists():
+            codigo_cohorte = generate_new_code(codigo_cohorte)
+
+        # Crea el nuevo cohorte
+        try:
+            cohorte = Cohorte.objects.create(
+                codigo_cohorte=codigo_cohorte,
+                fecha_inicio=datetime.datetime.strptime(fecha_inicio, "%Y-%m-%d"),
+                fecha_fin=datetime.datetime.strptime(fecha_fin, "%Y-%m-%d"),
+                sede_cohorte=sede_cohorte,
+                tipo_maestria=tipo_maestria,
+            )
+            serializer = CohorteSerializer(cohorte)
+            return Response({"codigo_cohorte": codigo_cohorte}, status=201)
+
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=400)
+
+
+@api_view(["POST"])
+def verificar_codigo_cohorte(request):
+    """
+    @brief Verifica si un código de cohorte ya existe en la base de datos y genera uno nuevo si es necesario.
+    @param request Objeto HTTP Request con los datos necesarios:
+        - codigo_cohorte: Código de cohorte a verificar.
+    @return JsonResponse indicando si el código ya existe y, en caso positivo, sugiere un nuevo código.
+    """
+    if request.method == "POST":
+        codigo_cohorte = request.data.get("codigo_cohorte")
+
+        if not codigo_cohorte:
+            return JsonResponse(
+                {"error": "Código de cohorte no proporcionado"}, status=400
+            )
+
+        # Función para generar un nuevo código
+        def generate_new_code(code):
+            """
+            @brief Genera un nuevo código único basado en el código proporcionado.
+            @param code Código inicial de la cohorte.
+            @return Nuevo código generado.
+            """
+            prefix = code[
+                :-6
+            ]  # Toma todo excepto los últimos 6 caracteres (ej. FIIA-2024 -> FII)
+            year = code[-4:]  # Toma los últimos 4 caracteres (el año)
+            current_letter = code[-6]  # Toma la letra actual (A, B, C, etc.)
+            next_letter = chr(ord(current_letter) + 1)  # Genera la siguiente letra
+            return f"{prefix}{next_letter}-{year}"
+
+        # Verifica si el código de cohorte ya existe
+        if Cohorte.objects.filter(codigo_cohorte=codigo_cohorte).exists():
+            new_code = generate_new_code(codigo_cohorte)
+            return JsonResponse({"exists": True, "new_code": new_code})
+        else:
+            return JsonResponse({"exists": False})
+
+
+# controlador htttp: AsignarProfesorMateriaView
+# controlador htttp: MateriasPensumAPIView
+# controlador htttp: ProfesoresAPIView
+# controlador htttp: CohorteListAPIView
+# controlador htttp: PlanificacionProfesorAPIView
+# controlador htttp: ListadoEstudiantes
+# controlador htttp: SolicitudesListAPIView
+# controlador htttp: PagosListAPIView
+# controlador htttp: DatosBasicosCreateView
+# controlador htttp: BuscarCedulaEstView
+# controlador htttp: AlmacenarDatosEstView
+# controlador htttp: UserInfoView
+# controlador htttp: ProfMaterias
+# controlador htttp: DatosMaestriaViewSet
+# controlador htttp: admin_login
+# controlador htttp: login_profesor
+# controlador htttp: login_estudiante
+# controlador htttp: generar_codigo_cohorte
+# controlador htttp: verificar_codigo_cohorte
+
+# Modelo Active Record: Datos_basicos
+# Modelo Active Record: datos_maestria
+# Modelo Active Record: estudiante_datos
+# Modelo Active Record: Cohorte
+# Modelo Active Record: roles
+# Modelo Active Record: datos_login
+# Modelo Active Record: materias_pensum
+# Modelo Active Record: AsignarProfesorMateria
+# Modelo Active Record: PlanificacionProfesor
+# Modelo Active Record: listado_estudiantes
+# Modelo Active Record: profesores
+# Modelo Active Record: tabla_pagos
+# Modelo Active Record: tabla_solicitudes
+
+# 73 atributos
+
+##Datos_basicos
+
+# - cedula
+# - nombre
+# - apellido
+# - tipo_usuario
+# - contraseña
+# - correo
+
+##datos_maestria
+
+# - cod_maestria
+# - nombre_maestria
+
+##estudiante_datos
+
+# - cedula_estudiante
+# - cod_maestria
+# - nombre_est
+# - apellido_est
+# - año_ingreso
+# - estado_estudiante
+# - carrera
+
+##Cohorte
+
+# - codigo_cohorte
+# - fecha_inicio
+# - fecha_fin
+# - sede_cohorte
+# - tipo_maestria
+
+##roles
+
+# - codigo_rol
+# - nombre_rol
+
+##datos_login
+
+# - cedula_usuario
+# - contraseña_usuario
+# - tipo_usuario
+
+##materias_pensum
+
+# - cod_materia
+# - cod_maestria
+# - nombre_materia
+
+##AsignarProfesorMateria
+
+# - cod_materia
+# - nom_materia
+# - cedula_profesor
+# - nombre_profesor
+# - apellido_profesor
+# - fecha_inicio
+# - fecha_fin
+# - codigo_cohorte
+
+##PlanificacionProfesor
+
+# - codplanificacion
+# - actividades_planificacion
+# - actividades_porcentaje
+# - cod_materia
+# - codigo_cohorte
+# - cedula_profesor
+# - nombre_materia
+
+##listado_estudiantes
+
+# - cedula_estudiante
+# - nombre
+# - apellido
+# - cod_materia
+# - codigo_cohorte
+# - nombre_materia
+# - profesor_ci
+# - nom_profesor_materia
+# - ape_profesor_materia
+# - nota
+# - codplanificacion
+
+##profesores
+
+# - ci_profesor
+# - nom_profesor_materia
+# - ape_profesor_materia
+# - cod_maestria_prof
+
+##tabla_pagos
+
+# - cedula_responsable
+# - numero_referencia
+# - banco_pago
+# - fecha_pago
+# - monto_pago
+# - nombre_estudiante
+# - apellido_estudiante
+# - estado_pago
+
+##tabla_solicitudes
+
+# - cedula_responsable
+# - cod_solicitudes
+# - nombre_estudiante
+# - apellido_estudiante
+# - fecha_solicitud
+# - status_solicitud
+# - tipo_solicitud
+
+
+# PlanificacionProfesorSerializer
+# DatosBasicosSerializer
+# UserSerializer
+# DatosBasicosSerializer
+# DatosMaestriaSerializer
+# EstudianteDatosSerializer
+# CohorteSerializer
+# RolesSerializer
+# MateriasPensumSerializer
+# AsignarProfesorMateriaSerializer
+# DatosLoginSerializer
+# ListadoEstudiantesSerializer
+# ProfesoresSerializer
+# TablaPagosSerializer
+# TablaSolicitudesSerializer

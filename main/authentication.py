@@ -17,6 +17,7 @@ from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 from .models import datos_login
 from rest_framework_simplejwt.tokens import AccessToken
+from rest_framework.permissions import AllowAny
 
 
 class CustomJWTAuthentication(BaseAuthentication):
@@ -48,6 +49,8 @@ class CustomJWTAuthentication(BaseAuthentication):
         # Obtener el valor del encabezado 'Authorization' de la solicitud
         auth = request.headers.get('Authorization')
         
+        if self.has_allow_any_permission(request):
+            return None
         # Verificar si se proporcionó el encabezado de autorización
         if not auth:
             raise AuthenticationFailed('No authorization header provided')
@@ -82,3 +85,12 @@ class CustomJWTAuthentication(BaseAuthentication):
 
         # Si la autenticación es exitosa, devolver el usuario y el token
         return (user, token)
+    def has_allow_any_permission(self, request):   
+        # Acceder a la vista actual
+        view = request.resolver_match.func  # Esto puede variar según tu configuración
+        
+        # Obtener los permisos aplicados a la vista
+        permissions = getattr(view, 'permission_classes', [])
+        
+        # Comprobar si AllowAny está en los permisos
+        return AllowAny in permissions

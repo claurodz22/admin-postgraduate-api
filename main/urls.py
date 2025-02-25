@@ -20,6 +20,7 @@
 #
 
 
+from django.http import HttpRequest
 from django.urls import path
 from .views import *
 from . import views
@@ -30,6 +31,19 @@ from rest_framework_simplejwt.views import (
 )
 
 from rest_framework import routers
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
+
+
+@permission_classes([AllowAny])
+@api_view(["*"])
+def test(request: HttpRequest):
+    print("test")
+    return JsonResponse(
+        {"test": "ok", "req_method": request.method},
+        status=200,
+    )
+
 
 router = routers.DefaultRouter()
 router.register("maestrias", DatosMaestriaViewSet)
@@ -151,4 +165,5 @@ urlpatterns = [
         DatosMaestriaViewSet.as_view({"get": "list"}),
         name="datos-maestria",
     ),
+    path("test/", test),
 ] + router.urls
