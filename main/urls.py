@@ -56,6 +56,12 @@ router.register("maestrias", DatosMaestriaViewSet)
 #
 # @example La ruta 'http://127.0.0.1:8000/api/pagos/' accede a los pagos.
 urlpatterns = [
+    
+    path('listar_usuarios/', UsuariosPorTipoAPIView.as_view(), name='api_usuarios'),
+
+    path('eliminar-usuarios/', eliminar_usuarios, name='eliminar_usuarios'),
+
+
     ## @route /asignar-profesor-materia/
     # @brief Ruta para asignar un profesor a una materia.
     # @note Permite vincular a un profesor con una materia específica dentro del sistema.

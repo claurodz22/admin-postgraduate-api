@@ -1199,6 +1199,86 @@ def verificar_codigo_cohorte(request):
         else:
             return JsonResponse({"exists": False})
 
+# -------- AÑADIDOS -------------------
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from .models import Datos_basicos
+from .serializers import DatosBasicosSerializer
+
+class UsuariosPorTipoAPIView(APIView):
+    """
+    @brief API View que devuelve usuarios filtrados por tipo.
+    
+    Esta vista recibe un parámetro 'tipo_usuario' y devuelve
+    una lista de usuarios que coinciden con ese tipo en formato JSON.
+    """
+    
+    def get(self, request, format=None):
+        """
+        @brief Maneja las solicitudes GET para obtener usuarios por tipo.
+        """
+        # Obtener el tipo de usuario desde los parámetros de consulta
+        tipo_usuario = request.query_params.get('tipo_usuario')
+        
+        if tipo_usuario is not None:
+            try:
+                tipo_usuario = int(tipo_usuario)
+                usuarios = Datos_basicos.objects.filter(tipo_usuario=tipo_usuario)
+            except ValueError:
+                return Response(
+                    {"error": "El tipo de usuario debe ser un número entero"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        else:
+            # Si no se proporciona un tipo de usuario, devolver todos los usuarios
+            usuarios = Datos_basicos.objects.all()
+        
+        # Serializar los datos y devolver la respuesta
+        serializer = DatosBasicosSerializer(usuarios, many=True)
+        return Response(serializer.data)
+
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import csrf_exempt
+from .models import Datos_basicos
+import json
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def eliminar_usuarios(request):
+    try:
+        data = json.loads(request.body)
+        user_ids = data.get('user_ids', [])
+        
+        # Verificar si se proporcionaron IDs de usuario
+        if not user_ids:
+            return JsonResponse({'error': 'No se proporcionaron IDs de usuario'}, status=400)
+        
+        # Eliminar usuarios
+        deleted_count = Datos_basicos.objects.filter(cedula__in=user_ids).delete()[0]
+        
+        return JsonResponse({
+            'message': f'Se eliminaron {deleted_count - 1} usuarios exitosamente',
+            'deleted_count': deleted_count
+        })
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+@require_http_methods(["GET"])
+def listar_usuarios(request):
+    tipo_usuario = request.GET.get('tipo_usuario')
+    
+    if not tipo_usuario:
+        return JsonResponse({'error': 'Se requiere el parámetro tipo_usuario'}, status=400)
+    
+    usuarios = Datos_basicos.objects.filter(tipo_usuario=tipo_usuario).values('cedula', 'nombre', 'apellido', 'correo')
+    
+    return JsonResponse(list(usuarios), safe=False)
+
+
+
 
 # controlador htttp: AsignarProfesorMateriaView
 # controlador htttp: MateriasPensumAPIView
