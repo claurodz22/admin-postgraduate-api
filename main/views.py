@@ -1199,8 +1199,6 @@ def verificar_codigo_cohorte(request):
         else:
             return JsonResponse({"exists": False})
 
-# -------- AÑADIDOS -------------------
-
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -1218,8 +1216,10 @@ class UsuariosPorTipoAPIView(APIView):
     def get(self, request, format=None):
         """
         @brief Maneja las solicitudes GET para obtener usuarios por tipo.
+        @param request La solicitud HTTP recibida.
+        @param format El formato de la respuesta (por defecto None).
+        @return Response con la lista de usuarios serializada o un mensaje de error.
         """
-        # Obtener el tipo de usuario desde los parámetros de consulta
         tipo_usuario = request.query_params.get('tipo_usuario')
         
         if tipo_usuario is not None:
@@ -1232,42 +1232,51 @@ class UsuariosPorTipoAPIView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
         else:
-            # Si no se proporciona un tipo de usuario, devolver todos los usuarios
             usuarios = Datos_basicos.objects.all()
         
-        # Serializar los datos y devolver la respuesta
         serializer = DatosBasicosSerializer(usuarios, many=True)
         return Response(serializer.data)
 
 from django.http import JsonResponse
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
-from .models import Datos_basicos
+from .models import Datos_basicos, datos_login
 import json
 
 @csrf_exempt
 @require_http_methods(["POST"])
 def eliminar_usuarios(request):
+    """
+    @brief Elimina usuarios seleccionados y sus datos de login asociados.
+    @param request La solicitud HTTP POST recibida.
+    @return JsonResponse con el resultado de la operación o un mensaje de error.
+    """
     try:
         data = json.loads(request.body)
         user_ids = data.get('user_ids', [])
         
-        # Verificar si se proporcionaron IDs de usuario
         if not user_ids:
             return JsonResponse({'error': 'No se proporcionaron IDs de usuario'}, status=400)
         
-        # Eliminar usuarios
+        login_count = datos_login.objects.filter(cedula_usuario__cedula__in=user_ids).count()
+        
         deleted_count = Datos_basicos.objects.filter(cedula__in=user_ids).delete()[0]
         
         return JsonResponse({
-            'message': f'Se eliminaron {deleted_count - 1} usuarios exitosamente',
-            'deleted_count': deleted_count
+            'message': f'Se elimino la lista de usuarios seleccionados',
+            'deleted_users_count': deleted_count,
+            'deleted_login_count': login_count
         })
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
 @require_http_methods(["GET"])
 def listar_usuarios(request):
+    """
+    @brief Lista usuarios filtrados por tipo de usuario.
+    @param request La solicitud HTTP GET recibida.
+    @return JsonResponse con la lista de usuarios o un mensaje de error.
+    """
     tipo_usuario = request.GET.get('tipo_usuario')
     
     if not tipo_usuario:
@@ -1277,6 +1286,49 @@ def listar_usuarios(request):
     
     return JsonResponse(list(usuarios), safe=False)
 
+import json
+import traceback
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+from .models import tabla_pagos
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def actualizar_estado_pagos(request):
+    """
+    @brief Actualiza el estado de los pagos proporcionados.
+    @param request La solicitud HTTP POST recibida.
+    @return JsonResponse con el resultado de la operación o un mensaje de error.
+    """
+    try:
+        data = json.loads(request.body)
+        pagos = data.get('pagos', [])
+
+        if not pagos:
+            return JsonResponse({'error': 'No se proporcionaron pagos para actualizar'}, status=400)
+
+        updated_count = 0
+        for pago in pagos:
+            numero_referencia = pago.get('numero_referencia')
+            nuevo_estado = pago.get('nuevoEstado')
+
+            if numero_referencia and nuevo_estado:
+                try:
+                    numero_referencia = int(numero_referencia)
+                    updated = tabla_pagos.objects.filter(numero_referencia=numero_referencia).update(estado_pago=nuevo_estado)
+                    updated_count += updated
+                except ValueError:
+                    return JsonResponse({'error': f'Número de referencia inválido: {numero_referencia}'}, status=400)
+
+        return JsonResponse({
+            'message': f'Se actualizaron {updated_count} pagos exitosamente',
+            'updated_count': updated_count
+        })
+
+    except Exception as e:
+        print("Error en actualizar_estado_pagos:", traceback.format_exc())
+        return JsonResponse({'error': str(e)}, status=500)
 
 
 
