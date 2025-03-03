@@ -1,61 +1,95 @@
-##
-# @file views.py
-# @brief Vistas de la API para manejar la lógica del negocio y los datos.
-#
-# Este archivo contiene las vistas que definen la lógica de negocio para interactuar con los modelos
-# de la base de datos y devolver respuestas en formato JSON o XML a través de la API.
-# Las vistas están diseñadas para manejar operaciones CRUD, autenticación, autorización
-# y otros procesos relacionados con el sistema.
-#
-# Las vistas están implementadas utilizando el framework Django Rest Framework (DRF)
-# y las clases de vista genéricas de DRF, como `APIView`, que permiten la creación de
-# vistas basadas en clases para simplificar la gestión de los métodos HTTP (GET, POST, PUT, DELETE).
-#
-# @note Este archivo es clave para la interacción entre el frontend y el backend,
-# ya que procesa las solicitudes y devuelve las respuestas adecuadas.
-#
-# @example Para obtener los datos básicos de un estudiante, la ruta correspondiente
-# invoca la vista `DatosBasicosCreateView` definida en este archivo.
-#
-# @see Django Rest Framework
-# @see APIView
-#
-from rest_framework import status
+"""
+@file views.py
+@brief Vistas de la API para manejar la lógica del negocio y los datos.
+
+Este archivo contiene las vistas que definen la lógica de negocio para interactuar con los modelos
+de la base de datos y devolver respuestas a través de la API.
+"""
+
+from rest_framework import status, viewsets, generics
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.decorators import api_view, action
+from rest_framework.permissions import IsAuthenticated
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
+from rest_framework_simplejwt.tokens import RefreshToken
+from django.utils import timezone
+import json
+import sys
+import traceback
+import datetime
 
 from main.permissions import IsPublic
-
 from . import models
-from .models import AsignarProfesorMateria
-from .serializers import AsignarProfesorMateriaSerializer
+from .models import (
+    AsignarProfesorMateria, materias_pensum, profesores, Cohorte, 
+    PlanificacionProfesor, listado_estudiantes, tabla_solicitudes, 
+    tabla_pagos, Datos_basicos, datos_login, roles, estudiante_datos,
+    datos_maestria
+)
+from .serializers import (
+    AsignarProfesorMateriaSerializer, MateriasPensumSerializer, 
+    ProfesoresSerializer, CohorteSerializer, PlanificacionProfesorSerializer,
+    ListadoEstudiantesSerializer, TablaSolicitudesSerializer, 
+    TablaPagosSerializer, DatosBasicosSerializer, DatosLoginSerializer,
+    EstudianteDatosSerializer, DatosMaestriaSerializer
+)
 
-from rest_framework import permissions
-from rest_framework.exceptions import PermissionDenied
-
-
-class AsignarProfesorMateriaView(APIView):
+# Utilidad para convertir texto a mayúsculas
+def convert_to_uppercase(data):
     """
-    @class AsignarProfesorMateriaView
+    @brief Convierte todos los campos de texto en un diccionario a mayúsculas.
+    @param data Diccionario con los datos a convertir.
+    @return Diccionario con los campos de texto convertidos a mayúsculas.
+    """
+    uppercase_data = {}
+    for key, value in data.items():
+        if isinstance(value, str):
+            uppercase_data[key] = value.upper()
+        else:
+            uppercase_data[key] = value
+    return uppercase_data
+
+# Clase base para vistas CRUD simples
+class BaseCRUDView(APIView):
+    """
+    @brief Clase base para operaciones CRUD simples.
+    """
+    model = None
+    serializer_class = None
+    permission_classes = []
+    
+    def get(self, request, format=None):
+        """
+        @brief Obtiene todos los registros del modelo.
+        """
+        objects = self.model.objects.all()
+        serializer = self.serializer_class(objects, many=True)
+        return Response(serializer.data)
+    
+    def post(self, request, format=None):
+        """
+        @brief Crea un nuevo registro.
+        """
+        serializer = self.serializer_class(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+# Vistas específicas que extienden la clase base
+class AsignarProfesorMateriaView(BaseCRUDView):
+    """
     @brief Vista para asignar un profesor a una materia y listar asignaciones.
     """
-
-    def get(self, request):
-        """
-        @brief Obtiene todas las asignaciones de profesores a materias.
-        @param request Petición HTTP.
-        @return Response con los datos de las asignaciones.
-        """
-        asignaciones = AsignarProfesorMateria.objects.all()
-        # serializer = AsignarProfesorMateriaSerializer(asignaciones, many=True, context={'resolve_relation': False})
-        serializer = AsignarProfesorMateriaSerializer(asignaciones, many=True)
-        return Response(serializer.data)
-
+    model = AsignarProfesorMateria
+    serializer_class = AsignarProfesorMateriaSerializer
+    
     def post(self, request):
         """
         @brief Crea nuevas asignaciones de profesor a materia.
-        @param request Petición HTTP con los datos de planificación.
-        @return Response con las asignaciones creadas o errores.
         """
         planning_data = request.data.get("planning", [])
         if not planning_data:
@@ -68,7 +102,8 @@ class AsignarProfesorMateriaView(APIView):
         errors = []
 
         for item in planning_data:
-            serializer = AsignarProfesorMateriaSerializer(data=item)
+            uppercase_item = convert_to_uppercase(item)
+            serializer = self.serializer_class(data=uppercase_item)
             if serializer.is_valid():
                 serializer.save()
                 created_assignments.append(serializer.data)
@@ -82,181 +117,80 @@ class AsignarProfesorMateriaView(APIView):
             {"created": created_assignments}, status=status.HTTP_201_CREATED
         )
 
-
-# ----------- CLASE: MATERIAS PENSUM ----------------
-from rest_framework import generics, status
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from .models import materias_pensum
-from .serializers import MateriasPensumSerializer
-
-
-class MateriasPensumAPIView(APIView):
+class MateriasPensumAPIView(BaseCRUDView):
     """
-    @class MateriasPensumAPIView
     @brief API View para listar y registrar materias del pensum de cada maestría.
     """
-
+    model = materias_pensum
+    serializer_class = MateriasPensumSerializer
     permission_classes = [IsAuthenticated]
 
-    def get(self, request):
-        """
-        @brief Obtiene la lista de todas las materias del pensum.
-        @param request Petición HTTP.
-        @return Response con la lista de materias.
-        """
-        materias = materias_pensum.objects.all()
-        serializer = MateriasPensumSerializer(materias, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-    def post(self, request):
-        """
-        @brief Crea una nueva materia en el pensum.
-        @param request Petición HTTP con los datos de la materia.
-        @return Response con la materia creada o errores de validación.
-        """
-        serializer = MateriasPensumSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-"""
----------------CLASE: PROFESORES-------------------
-"""
-
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from .models import profesores
-from .serializers import ProfesoresSerializer
-
-
-class ProfesoresAPIView(APIView):
+class ProfesoresAPIView(BaseCRUDView):
     """
     @brief Clase que gestiona los profesores mediante solicitudes HTTP.
-    Esta clase permite recuperar (GET) o crear (POST) registros de profesores.
     """
+    model = profesores
+    serializer_class = ProfesoresSerializer
 
-    def get(self, request):
-        """
-        @brief Recupera todos los profesores registrados en la base de datos.
-        @param request Objeto HTTP Request.
-        @return Response Objeto HTTP Response con la lista de profesores en formato JSON.
-        """
-        Profes = profesores.objects.all()  # Recupera todos los registros de profesores
-        print(profesores)
-        serializer = ProfesoresSerializer(
-            Profes, many=True
-        )  # Serializa los datos para su retorno en formato JSON
-
-        return Response(serializer.data)
-
-    def post(self, request):
-        """
-        @brief Crea un nuevo registro de profesor en la base de datos.
-        @param request Objeto HTTP Request que contiene los datos del nuevo profesor en formato JSON.
-        @return Response Objeto HTTP Response:
-            - Si los datos son válidos, retorna el profesor creado y un código de estado 201 (CREATED).
-            - Si los datos son inválidos, retorna los errores de validación y un código de estado 400 (BAD REQUEST).
-        """
-        serializer = ProfesoresSerializer(
-            data=request.data
-        )  # Deserializa los datos enviados en la solicitud
-        if serializer.is_valid():  # Valida los datos recibidos
-            serializer.save()  # Guarda el nuevo registro en la base de datos
-            return Response(
-                serializer.data, status=status.HTTP_201_CREATED
-            )  # Retorna el registro creado
-        return Response(
-            serializer.errors, status=status.HTTP_400_BAD_REQUEST
-        )  # Retorna errores si la validación falla
-
-
-"""
-------------------CLASE: LISTADOS COHORTE---------------------
-"""
-import sys
-import traceback
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from .models import Cohorte, Roles
-from .serializers import CohorteSerializer, DatosMaestriaSerializer
-
-
-class CohorteListAPIView(APIView):
+class CohorteListAPIView(BaseCRUDView):
     """
     @brief Clase que gestiona los cohortes mediante solicitudes HTTP.
-    Esta clase permite recuperar (GET) o crear (POST) registros de cohortes.
     """
-
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request):
-        """
-        @brief Recupera todos los cohortes registrados en la base de datos.
-        @param request Objeto HTTP Request.
-        @return Response Objeto HTTP Response con la lista de cohortes en formato JSON.
-        """
-        cohortes = Cohorte.objects.all()  # Recupera todos los registros de cohortes
-        serializer = CohorteSerializer(
-            cohortes, many=True
-        )  # Serializa los datos para su retorno en formato JSON
-        return Response(serializer.data)
-
-    def post(self, request):
-        """
-        @brief Crea un nuevo registro de cohorte en la base de datos.
-        @param request Objeto HTTP Request que contiene los datos del nuevo cohorte en formato JSON.
-        @return Response Objeto HTTP Response:
-            - Si los datos son válidos, retorna el cohorte creado y un código de estado 201 (CREATED).
-            - Si los datos son inválidos, retorna los errores de validación y un código de estado 400 (BAD REQUEST).
-        """
-        serializer = CohorteSerializer(
-            data=request.data
-        )  # Deserializa los datos enviados en la solicitud
-        if serializer.is_valid():  # Valida los datos recibidos
-            serializer.save()  # Guarda el nuevo registro en la base de datos
-            return Response(
-                serializer.data, status=status.HTTP_201_CREATED
-            )  # Retorna el registro creado
-        return Response(
-            serializer.errors, status=status.HTTP_400_BAD_REQUEST
-        )  # Retorna errores si la validación falla
-
-
-"""
-------------------CLASE: PLANIFICACION PROFESOR---------------------
-"""
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from .models import PlanificacionProfesor
-from .serializers import PlanificacionProfesorSerializer
-
+    model = Cohorte
+    serializer_class = CohorteSerializer
+    permission_classes = [IsAuthenticated]
 
 class PlanificacionProfesorAPIView(APIView):
     """
     @brief Clase que gestiona la planificación de profesores mediante solicitudes HTTP.
     Esta clase permite recuperar (GET) o crear (POST) registros en la tabla de planificación de profesores.
     """
-
+    
+    def convert_to_uppercase(self, data):
+        """
+        @brief Convierte todos los valores string del diccionario a mayúsculas.
+        @param data Diccionario con los datos a convertir.
+        @return Diccionario con los valores string convertidos a mayúsculas.
+        """
+        if isinstance(data, dict):
+            result = {}
+            for key, value in data.items():
+                if isinstance(value, str):
+                    result[key] = value.upper()
+                elif isinstance(value, dict) or isinstance(value, list):
+                    result[key] = self.convert_to_uppercase(value)
+                else:
+                    result[key] = value
+            return result
+        elif isinstance(data, list):
+            return [self.convert_to_uppercase(item) for item in data]
+        return data
+    
     def get(self, request):
         """
         @brief Recupera todas las planificaciones de profesores registradas en la base de datos.
         @param request Objeto HTTP Request.
         @return Response Objeto HTTP Response con la lista de planificaciones en formato JSON.
         """
-        planificaciones = (
-            PlanificacionProfesor.objects.all()
-        )  # Recupera todos los registros de planificación
-        serializer = PlanificacionProfesorSerializer(
-            planificaciones, many=True
-        )  # Serializa los datos
-        return Response(serializer.data)
+        try:
+            # Opcionalmente, podemos filtrar por cedula_profesor si se proporciona en los parámetros de consulta
+            cedula_profesor = request.query_params.get('cedula_profesor')
+            
+            if cedula_profesor:
+                planificaciones = PlanificacionProfesor.objects.filter(cedula_profesor=cedula_profesor)
+            else:
+                planificaciones = PlanificacionProfesor.objects.all()
+                
+            serializer = PlanificacionProfesorSerializer(planificaciones, many=True)
+            return Response(serializer.data)
+        except Exception as e:
+            # Registrar el error para depuración
+            print(f"Error en PlanificacionProfesorAPIView.get: {str(e)}")
+            traceback.print_exc()
+            return Response(
+                {"error": "Error al obtener las planificaciones", "detail": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     def post(self, request):
         """
@@ -266,236 +200,90 @@ class PlanificacionProfesorAPIView(APIView):
             - Si los datos son válidos, retorna la planificación creada y un código de estado 201 (CREATED).
             - Si los datos son inválidos, retorna los errores de validación y un código de estado 400 (BAD REQUEST).
         """
-        serializer = PlanificacionProfesorSerializer(
-            data=request.data
-        )  # Deserializa los datos enviados en la solicitud
-        if serializer.is_valid():  # Valida los datos recibidos
-            serializer.save()  # Guarda el nuevo registro en la base de datos
+        try:
+            # Convertir los datos a mayúsculas antes de validarlos
+            uppercase_data = self.convert_to_uppercase(request.data)
+            
+            serializer = PlanificacionProfesorSerializer(data=uppercase_data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            # Registrar el error para depuración
+            print(f"Error en PlanificacionProfesorAPIView.post: {str(e)}")
+            traceback.print_exc()
             return Response(
-                serializer.data, status=status.HTTP_201_CREATED
-            )  # Retorna el registro creado
-        return Response(
-            serializer.errors, status=status.HTTP_400_BAD_REQUEST
-        )  # Retorna errores si la validación falla
+                {"error": "Error al crear la planificación", "detail": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
 
-"""
-------------------CLASE: LISTADO ESTUDIANTES---------------------
-"""
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.request import Request
-
-from rest_framework import status
-from .models import listado_estudiantes
-from .serializers import ListadoEstudiantesSerializer
-
-
-class ListadoEstudiantes(APIView):
-    """Clase para recuperar listado de estudiantes para el frontend
-    de control de notas en el administrador.
-
-    Esta clase define los métodos GET y POST para interactuar con los datos
-    relacionados con estudiantes.
+class ListadoEstudiantes(BaseCRUDView):
     """
-
+    @brief Clase para recuperar listado de estudiantes.
+    """
+    model = listado_estudiantes
+    serializer_class = ListadoEstudiantesSerializer
+    
     def get(self, request):
-        """Método GET: Para obtener todos los estudiantes.
-
-        Este método recupera todos los estudiantes y filtra opcionalmente
-        por `q_code` o `m_code` recibidos como parámetros de consulta.
-
-        @param self: Referencia a la instancia de la clase.
-        @param request: Objeto Request que contiene los datos de la solicitud.
-        @return: Una respuesta JSON con la lista de estudiantes.
+        """
+        @brief Método GET: Para obtener todos los estudiantes con filtros opcionales.
         """
         q_code = request.query_params.get("q_code")
         m_code = request.query_params.get("m_code")
-        estudiantes = listado_estudiantes.objects.all()
+        estudiantes = self.model.objects.all()
+        
         if q_code:
             estudiantes = estudiantes.filter(codigo_cohorte=q_code)
         if m_code:
             estudiantes = estudiantes.filter(cod_materia=m_code)
-        serializer = ListadoEstudiantesSerializer(estudiantes, many=True)
+            
+        serializer = self.serializer_class(estudiantes, many=True)
         return Response(serializer.data)
 
-    def post(self, request):
-        """Método POST: Para agregar un estudiante nuevo.
-
-        Este método permite agregar un nuevo estudiante al listado.
-
-        @param self: Referencia a la instancia de la clase.
-        @param request: Objeto Request que contiene los datos de la solicitud.
-        @return: Una respuesta JSON con los datos del estudiante creado si es válido,
-                 o un error con el código de estado correspondiente.
-        """
-        serializer = ListadoEstudiantesSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-"""
---------FUNCIONES PARA GENERAR CÓDIGO DEL COHORTE----------
-"""
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from django.http import JsonResponse
-from .models import Cohorte
-from .serializers import CohorteSerializer
-import datetime
-
-
-"""
---------------- CLASE: SOLICITUDES ESTUDIANTILES -----------------
-"""
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from .models import tabla_solicitudes
-from .serializers import TablaSolicitudesSerializer
-
-
-class SolicitudesListAPIView(APIView):
+class SolicitudesListAPIView(BaseCRUDView):
     """
-    @brief Clase que gestiona las solicitudes estudiantiles mediante solicitudes HTTP.
-    Esta clase permite recuperar (GET) o crear (POST) registros en la tabla de solicitudes estudiantiles.
+    @brief Clase que gestiona las solicitudes estudiantiles.
     """
+    model = tabla_solicitudes
+    serializer_class = TablaSolicitudesSerializer
 
-    def get(self, request):
-        """
-        @brief Recupera todas las solicitudes estudiantiles de la base de datos.
-        @param request Objeto HTTP Request.
-        @return Response Objeto HTTP Response con la lista de solicitudes estudiantiles en formato JSON.
-        """
-        solicitudes = tabla_solicitudes.objects.all()
-        serializer = TablaSolicitudesSerializer(solicitudes, many=True)
-        return Response(serializer.data)
-
-    def post(self, request):
-        """
-        @brief Crea una nueva solicitud estudiantil en la base de datos.
-        @param request Objeto HTTP Request que contiene los datos de la nueva solicitud en formato JSON.
-        @return Response Objeto HTTP Response:
-            - Si los datos son válidos, retorna la nueva solicitud creada y un código de estado 201 (CREATED).
-            - Si los datos son inválidos, retorna los errores de validación y un código de estado 400 (BAD REQUEST).
-        """
-        serializer = TablaSolicitudesSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-"""
---------------- CLASE: PAGOS ESTUDIANTILES -----------------
-"""
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.request import Request
-from .models import tabla_pagos
-from .serializers import TablaPagosSerializer
-
-
-class PagosListAPIView(APIView):
+class PagosListAPIView(BaseCRUDView):
     """
     @brief Clase que gestiona los pagos mediante solicitudes HTTP.
-    Esta clase permite recuperar (GET) o crear (POST) registros en la tabla de pagos.
     """
-
-    def get(self, request: Request):
-        """
-        @brief Recupera todos los pagos registrados en la base de datos.
-        @param request Objeto HTTP Request.
-        @return Response Objeto HTTP Response con la lista de pagos en formato JSON.
-        """
-        pagos = tabla_pagos.objects.select_related(
-            # "cedula_responsable"
-        ).all()  # Recupera todos los registros de la tabla de pagos
-        serializer = TablaPagosSerializer(
-            pagos, many=True
-        )  # Serializa los datos para su retorno en formato JSON
-        return Response(serializer.data)
-
-    def post(self, request: Request):
-        """
-        @brief Crea un nuevo registro de pago en la base de datos.
-        @param request Objeto HTTP Request que contiene los datos del nuevo pago en formato JSON.
-        @return Response Objeto HTTP Response:
-            - Si los datos son válidos, retorna el pago creado y un código de estado 201 (CREATED).
-            - Si los datos son inválidos, retorna los errores de validación y un código de estado 400 (BAD REQUEST).
-        """
-        serializer = TablaPagosSerializer(
-            data=request.data
-        )  # Deserializa los datos enviados en la solicitud
-        if serializer.is_valid():  # Valida los datos recibidos
-            serializer.save()  # Guarda el nuevo registro en la base de datos
-            return Response(
-                serializer.data, status=status.HTTP_201_CREATED
-            )  # Retorna el registro creado
-        return Response(
-            serializer.errors, status=status.HTTP_400_BAD_REQUEST
-        )  # Retorna errores si la validación falla
-
-
-"""
---------------- CLASE: DATOS BASICOS (ADMIN, PROF Y ESTUDIANTES) -----------------
-"""
-from .models import Datos_basicos, datos_login, roles, profesores
-from .serializers import DatosBasicosSerializer
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework import status
-
-
-class DatosBasicosCreateView(APIView):
-    """
-    @brief Clase que gestiona la creación y actualización de los datos básicos de los usuarios.
-
-    Esta clase proporciona métodos para:
-    - Recuperar los datos básicos de los usuarios (GET).
-    - Crear un nuevo usuario o actualizar los datos de un usuario existente (POST).
-    """
-
+    model = tabla_pagos
+    serializer_class = TablaPagosSerializer
+    
     def get(self, request):
         """
-        @brief Recupera todos los registros de datos básicos de los usuarios.
-
-        @param request Objeto HTTP Request.
-        @return Response Objeto HTTP Response con los datos básicos de los usuarios en formato JSON.
+        @brief Recupera todos los pagos con relaciones.
         """
-        datosbasicos = (
-            Datos_basicos.objects.all()
-        )  # Recupera todos los registros de la tabla Datos_basicos
-        serializer = DatosBasicosSerializer(
-            datosbasicos, many=True
-        )  # Serializa los datos para su retorno en formato JSON
+        pagos = self.model.objects.select_related().all()
+        serializer = self.serializer_class(pagos, many=True)
         return Response(serializer.data)
 
+class DatosBasicosCreateView(BaseCRUDView):
+    """
+    @brief Clase que gestiona la creación y actualización de los datos básicos de los usuarios.
+    """
+    model = Datos_basicos
+    serializer_class = DatosBasicosSerializer
+    
     def post(self, request):
         """
         @brief Crea o actualiza los datos de un usuario según la cédula proporcionada.
-
-        @param request Objeto HTTP Request que contiene los datos del usuario, incluyendo cédula y tipo de usuario.
-
-        @return Response Objeto HTTP Response:
-            - Si el usuario ya existe, se actualizan sus datos y se retorna el resultado con un código de estado 200 (OK).
-            - Si el usuario no existe, se crea un nuevo registro y se retorna con un código de estado 201 (CREATED).
-            - Si ocurre un error durante el proceso de validación o creación/actualización, se retorna un código de estado 400 (BAD REQUEST).
         """
-        cedula_exp = request.data.get("cedula")  # Obtiene la cédula del usuario
-        print(f"Cédula recibida: {cedula_exp}")
-
-        # Intentar buscar el usuario por cédula
-        usuario = Datos_basicos.objects.filter(cedula=cedula_exp).first()
-
-        # Obtener tipo_usuario directamente desde el request
-        tipo_usuario_exp = request.data.get(
-            "tipo_usuario"
-        )  # Obtiene el tipo de usuario desde el request
-        print(f"Tipo de usuario recibido: {tipo_usuario_exp}")
-
+        # Convertir los datos a mayúsculas (excepto la contraseña)
+        data = request.data.copy()
+        for key, value in data.items():
+            if key != 'contraseña' and isinstance(value, str):
+                data[key] = value.upper()
+        
+        cedula_exp = data.get("cedula")
+        tipo_usuario_exp = data.get("tipo_usuario")
+        
         # Buscar la instancia del rol correspondiente al tipo_usuario
         if tipo_usuario_exp:
             try:
@@ -507,41 +295,34 @@ class DatosBasicosCreateView(APIView):
                 )
         else:
             tipo_usuario_obj = None
-
+            
+        # Intentar buscar el usuario por cédula
+        usuario = self.model.objects.filter(cedula=cedula_exp).first()
+        
         if usuario:  # Si el usuario existe, se actualizan los datos
-            serializer = DatosBasicosSerializer(
-                usuario, data=request.data, partial=True
-            )
+            serializer = self.serializer_class(usuario, data=data, partial=True)
             if serializer.is_valid():
-                # Guardar los datos actualizados en la tabla Datos_basicos
                 updated_usuario = serializer.save()
-
-                # Solo actualizamos datos_login si tipo_usuario no es None
+                
+                # Actualizar datos_login si tipo_usuario no es None
                 if tipo_usuario_obj is not None:
                     datos_login.objects.update_or_create(
-                        cedula_usuario=usuario,  # Usamos la instancia de Datos_basicos
+                        cedula_usuario=usuario,
                         defaults={
                             "contraseña_usuario": updated_usuario.contraseña,
-                            "tipo_usuario": tipo_usuario_obj,  # Usamos la instancia del rol
+                            "tipo_usuario": tipo_usuario_obj,
                         },
                     )
-
-                # Si es un profesor (tipo_usuario == 3), se crea un registro en la tabla de profesores
+                
+                # Si es un profesor, crear registro en tabla profesores
                 if tipo_usuario_exp == 3:
                     profesores.objects.create(
-                        ci_profesor=usuario,  # Relacionamos con los datos básicos del profesor
-                        cod_maestria_prof=None,  # Establecemos cod_maestria_prof como null
+                        ci_profesor=usuario,
+                        cod_maestria_prof=None,
                         nom_profesor_materia=usuario.nombre,
                         ape_profesor_materia=usuario.apellido,
                     )
-                    print(
-                        f"Profesor creado con cédula {usuario.cedula}, sin maestría asignada."
-                    )
-
-                print(
-                    f"Datos guardados en datos_login: {usuario.cedula}, {updated_usuario.contraseña}, {tipo_usuario_obj.nombre_rol if tipo_usuario_obj else 'sin rol'}"
-                )
-
+                
                 return Response(
                     {
                         "message": "Usuario encontrado y actualizado con éxito.",
@@ -551,33 +332,28 @@ class DatosBasicosCreateView(APIView):
                 )
             else:
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
         else:  # Si el usuario no existe, se crea uno nuevo
-            serializer = DatosBasicosSerializer(data=request.data)
+            serializer = self.serializer_class(data=data)
             if serializer.is_valid():
-                # Guardar los datos en la tabla Datos_basicos
                 usuario_guardado = serializer.save()
-
-                # Solo guardamos en datos_login si tipo_usuario no es None
+                
+                # Guardar en datos_login si tipo_usuario no es None
                 if tipo_usuario_obj is not None:
                     datos_login.objects.create(
-                        cedula_usuario=usuario_guardado,  # Usamos la instancia de Datos_basicos
+                        cedula_usuario=usuario_guardado,
                         contraseña_usuario=usuario_guardado.contraseña,
-                        tipo_usuario=tipo_usuario_obj,  # Usamos la instancia del rol
+                        tipo_usuario=tipo_usuario_obj,
                     )
-
-                # Si es un profesor (tipo_usuario == 3), se crea un registro en la tabla de profesores
+                
+                # Si es un profesor, crear registro en tabla profesores
                 if tipo_usuario_exp == 3:
                     profesores.objects.create(
-                        ci_profesor=usuario_guardado,  # Relacionamos con los datos básicos del profesor
-                        cod_maestria_prof=None,  # Establecemos cod_maestria_prof como null
+                        ci_profesor=usuario_guardado,
+                        cod_maestria_prof=None,
                         nom_profesor_materia=usuario_guardado.nombre,
-                        ape_profesor_materia=usuario_guardado.apelllido,
+                        ape_profesor_materia=usuario_guardado.apellido,
                     )
-                    print(
-                        f"Profesor creado con cédula {usuario_guardado.cedula}, sin maestría asignada."
-                    )
-
+                
                 return Response(
                     {
                         "message": "Usuario registrado con éxito.",
@@ -588,205 +364,69 @@ class DatosBasicosCreateView(APIView):
             else:
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-
-"""
---------------- FUNCIÓN: LOGIN ADMINISTRADOR -----------------
-"""
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
-from .models import datos_login
-from rest_framework_simplejwt.tokens import RefreshToken
-
-"""
-request involucra todo lo que es proceso de https, se puede 
-hacer request id, headers, o user etc 
-"""
-
-"""
---------------- CLASE: BUSCAR CEDULA PARA FORMALIZAR REGISTRO ESTUDIANTE -----------------
-"""
-from rest_framework.response import Response
-from rest_framework import status
-from .models import Datos_basicos
-from .serializers import DatosBasicosSerializer
-from rest_framework.views import APIView
-
-
 class BuscarCedulaEstView(APIView):
     """
     @brief Vista para obtener y buscar datos básicos de estudiantes por cédula.
-
-    Esta vista maneja dos métodos HTTP:
-    - **GET**: Recupera todos los datos básicos de los estudiantes.
-    - **POST**: Permite buscar un estudiante específico por su cédula y verificar su tipo de usuario.
     """
-
     def get(self, request):
         """
         @brief Recupera los datos básicos de todos los estudiantes.
-
-        Este método responde con todos los registros de estudiantes almacenados en la base de datos.
-
-        @param request Objeto HTTP Request.
-
-        @return Response Datos de todos los estudiantes, serializados en formato JSON.
         """
-        datosbasicos = Datos_basicos.objects.all()  # Recupera todos los estudiantes
-        serializer = DatosBasicosSerializer(
-            datosbasicos, many=True
-        )  # Serializa los datos
-        return Response(serializer.data)  # Retorna los datos serializados
+        datosbasicos = Datos_basicos.objects.all()
+        serializer = DatosBasicosSerializer(datosbasicos, many=True)
+        return Response(serializer.data)
 
     def post(self, request):
         """
         @brief Busca un estudiante por su cédula y verifica su tipo de usuario.
-
-        Este método permite buscar a un estudiante en función de la cédula proporcionada. Si el estudiante
-        existe y su tipo de usuario es "estudiante" (tipo_usuario == 2), se retornan los datos básicos del estudiante.
-        Si no es un estudiante, se retorna un mensaje de error.
-
-        @param request Objeto HTTP Request que debe contener la cédula del estudiante en el cuerpo de la solicitud.
-
-        @return Response Datos del estudiante si se encuentra y es del tipo correcto, o un mensaje de error si no.
         """
-        cedula_exp = request.data.get("cedula")  # Obtiene la cédula del request
-        print(cedula_exp)  # Debug: Muestra la cédula recibida
+        cedula_exp = request.data.get("cedula")
+        estudiante = Datos_basicos.objects.filter(cedula=cedula_exp).first()
 
-        estudiante = Datos_basicos.objects.filter(
-            cedula=cedula_exp
-        ).first()  # Busca el estudiante por cédula
-
-        if estudiante:  # Si el estudiante existe
-            if (
-                estudiante.tipo_usuario == 2
-            ):  # Verifica si el tipo de usuario es estudiante
-                serializer = DatosBasicosSerializer(
-                    estudiante
-                )  # Serializa los datos del estudiante
-                return Response(
-                    serializer.data, status=status.HTTP_200_OK
-                )  # Retorna los datos del estudiante
+        if estudiante:
+            if estudiante.tipo_usuario == 2:
+                serializer = DatosBasicosSerializer(estudiante)
+                return Response(serializer.data, status=status.HTTP_200_OK)
             else:
-                # Si el tipo de usuario no es estudiante, retorna un error
                 return Response(
                     {"message": "El estudiante no tiene el tipo de usuario requerido."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-        else:  # Si no se encuentra el estudiante con la cédula proporcionada
+        else:
             return Response(
                 {"message": "Estudiante no encontrado. Por favor, regístrese."},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-
-"""
---------------- CLASE: ALMACENAR DATOS DEL ESTUDIANTE EN LA TABLA DE ESTUDIANTES -----------------
-"""
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework import viewsets
-from .models import estudiante_datos, datos_maestria
-from .serializers import EstudianteDatosSerializer
-from rest_framework.views import APIView
-
-
-class DatosMaestriaViewSet(viewsets.ModelViewSet):
-    serializer_class = DatosMaestriaSerializer
-    queryset = datos_maestria.objects.all()
-    permission_classes = [IsPublic]
-
-    # @action(['POST'], detail=True, url_path='set-on-vacation')
-    # def set_on_vacation(self, request, pk):
-    #     doctor = self.get_object()
-    #     doctor.is_on_vacation = True
-    #     doctor.save()
-    #     return Response({"status": "El doctor está en vacaciones"})
-
-    # @action(['POST'], detail=True, url_path='set-off-vacation')
-    # def set_off_vacation(self, request, pk):
-    #     doctor = self.get_object()
-    #     doctor.is_on_vacation = False
-    #     doctor.save()
-    #     return Response({"status": "El doctor NO está en vacaciones"})
-
-    # @action(['POST', 'GET'], detail=True, serializer_class=AppointmentSerializer)
-    # def appointments(self, request, pk):
-    #     doctor = self.get_object()
-
-    #     if request.method == 'POST':
-    #         data = request.data.copy()
-    #         data['doctor'] = doctor.id
-    #         serializer = AppointmentSerializer(data=data)
-    #         serializer.is_valid(raise_exception=True)
-    #         serializer.save()
-    #         return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-    #     if request.method == 'GET':
-    #         appointments = Appointment.objects.filter(doctor=doctor)
-    #         serializer = AppointmentSerializer(appointments, many=True)
-    #         return Response(serializer.data)
-
-    # @action(['POST'], detail=True, url_path='create')
-    # def create_new_doctor(self, request, pk):
-    #     user = User.objects.create_user("john", "lennon@thebeatles.com", "johnpassword")
-
-    #     return Response({"status": "El doctor está en vacaciones"})
-
-
 class AlmacenarDatosEstView(APIView):
     """
     @brief Vista para registrar o actualizar los datos de un estudiante.
-
-    Este endpoint permite registrar un estudiante si no existe en la base de datos,
-    o actualizar sus datos si ya existe en la tabla `estudiante_datos`.
-    También valida la existencia del estudiante en la tabla `Datos_basicos` y la existencia del código de maestría.
     """
-
     def post(self, request):
         """
         @brief Registrar o actualizar un estudiante en la base de datos.
-
-        Este método recibe los datos de un estudiante y verifica si el estudiante existe en la base de datos.
-        Si el estudiante existe, actualiza su información; si no, lo registra como un nuevo estudiante.
-
-        @param request Objeto HTTP Request que debe contener los datos del estudiante en el cuerpo de la solicitud:
-        - cedula_estudiante: Cédula del estudiante.
-        - nombre_est: Nombre del estudiante.
-        - apellido_est: Apellido del estudiante.
-        - carrera: Carrera del estudiante.
-        - año_ingreso: Año de ingreso del estudiante.
-        - estado_estudiante: Estado del estudiante (activo o inactivo).
-        - cod_maestria: Código de maestría asociado al estudiante.
-
-        @return Response Mensaje indicando si el estudiante fue registrado o actualizado correctamente.
         """
-        cedula = request.data.get("cedula_estudiante")  # Cédula del estudiante
-        nombre = request.data.get("nombre_est")  # Nombre del estudiante
-        apellido = request.data.get("apellido_est")  # Apellido del estudiante
-        carrera = request.data.get("carrera")  # Carrera del estudiante
-        año_ingreso = request.data.get("año_ingreso")  # Año de ingreso del estudiante
-        estado_estudiante = request.data.get(
-            "estado_estudiante"
-        )  # Estado del estudiante ("Activo" o "Inactivo")
-        cod_maestria = request.data.get(
-            "cod_maestria"
-        )  # Código de la maestría asociada al estudiante
+        # Obtener los datos del request y convertirlos a mayúsculas
+        cedula = request.data.get("cedula_estudiante", "").upper()
+        nombre = request.data.get("nombre_est", "").upper()
+        apellido = request.data.get("apellido_est", "").upper()
+        carrera = request.data.get("carrera", "").upper()
+        año_ingreso = request.data.get("año_ingreso")
+        estado_estudiante = request.data.get("estado_estudiante", "").upper()
+        cod_maestria = request.data.get("cod_maestria", "").upper()
 
-        # Buscar el estudiante en la tabla Datos_basicos usando la cédula
+        # Buscar el estudiante en la tabla Datos_basicos
         datos_basicos = Datos_basicos.objects.filter(cedula=cedula).first()
-
         if not datos_basicos:
             return Response(
                 {"message": "Estudiante no encontrado en Datos_basicos."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Buscar la instancia de datos_maestria usando el código de maestría
+        # Buscar la instancia de datos_maestria
         datos_maestria_instance = datos_maestria.objects.filter(
             cod_maestria=cod_maestria
         ).first()
-
         if cod_maestria and not datos_maestria_instance:
             return Response(
                 {"message": "Código de maestría no encontrado."},
@@ -795,430 +435,81 @@ class AlmacenarDatosEstView(APIView):
 
         # Crear o actualizar los datos del estudiante
         estudiante, created = estudiante_datos.objects.update_or_create(
-            cedula_estudiante=datos_basicos,  # Relaciona el estudiante con la instancia de Datos_basicos
-            defaults={  # Datos a actualizar o registrar
+            cedula_estudiante=datos_basicos,
+            defaults={
                 "nombre_est": nombre,
                 "apellido_est": apellido,
                 "carrera": carrera,
                 "año_ingreso": año_ingreso,
-                "estado_estudiante": estado_estudiante,  # Estado del estudiante
-                "cod_maestria": (
-                    datos_maestria_instance if cod_maestria else None
-                ),  # Relaciona con la instancia de datos_maestria, si se proporciona
+                "estado_estudiante": estado_estudiante,
+                "cod_maestria": datos_maestria_instance if cod_maestria else None,
             },
         )
 
-        if created:
-            message = (
-                "Estudiante registrado con éxito."  # Mensaje si el estudiante es creado
-            )
-        else:
-            message = "Estudiante actualizado con éxito."  # Mensaje si el estudiante es actualizado
-
-        # Retorna un mensaje indicando el resultado de la operación
-        return Response(
-            {"message": message}, status=status.HTTP_200_OK
-        )  # Usamos el código HTTP 200 OK
-
-
-"""
------------------- FUNCION LOGIN DEL PROFESOR -------------------
-"""
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
-from .models import datos_login
-from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework.decorators import action
-
-"""
-request involucra todo lo que es proceso de https, se puede 
-hacer request id, headers, o user etc 
-"""
-
-
-"""
------ CLASE USERINFOVIEW: PARA RECUPERAR DATOS DE USUARIO AUTENTICADO ----------
-"""
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from .serializers import DatosLoginSerializer
-
+        message = "Estudiante registrado con éxito." if created else "Estudiante actualizado con éxito."
+        return Response({"message": message}, status=status.HTTP_200_OK)
 
 class UserInfoView(APIView):
     """
     @brief Endpoint para obtener información del usuario autenticado.
-
-    Este endpoint permite a los usuarios autenticados obtener su propia información almacenada en la base de datos.
-    La información se obtiene a través de la cédula del usuario, que es asociada a los datos del usuario en la base de datos.
-
-    @note: El acceso a este endpoint requiere que el usuario esté autenticado.
     """
-
-    permission_classes = [IsAuthenticated]  # Requiere autenticación
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         """
         @brief Obtener los datos del usuario autenticado.
-
-        Este método obtiene los datos del usuario autenticado a través de su cédula almacenada en la base de datos.
-        Si el usuario es encontrado, sus datos serán serializados y devueltos en la respuesta.
-        Si no se encuentra al usuario, se devuelve un mensaje de error.
-
-        @param request Objeto de solicitud HTTP que contiene la información del usuario autenticado.
-
-        @return Response Respuesta con los datos del usuario si es encontrado, o un mensaje de error si no.
         """
-
-        # Obtener la cédula del usuario autenticado
-        user = (
-            request.user
-        )  # Esto asume que request.user está vinculado con Datos_basicos
-
+        user = request.user
         try:
-            # Imprimir el tipo de objeto del usuario (para depuración)
-            print(type(user))
-            # Serializar los datos del usuario utilizando el serializador de login
             serializedUser = DatosLoginSerializer(user).data
-            # Buscar el usuario en Datos_basicos por su cédula
             datos_usuario = Datos_basicos.objects.get(
                 cedula=serializedUser["cedula_usuario"]
             )
-            # Serializar los datos del usuario
             serializer = DatosBasicosSerializer(datos_usuario)
             return Response(serializer.data, status=200)
-
         except Datos_basicos.DoesNotExist:
-            # Si el usuario no es encontrado, devolver un mensaje de error
             return Response({"error": "Usuario no encontrado"}, status=404)
-
-
-"""
-------- CLASE: PROFMATERIAS PARA RECUPERAR MATERIAS DE ESE PROFESOR ---- 
-"""
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from .serializers import MateriasPensumSerializer
-from .models import materias_pensum
-
 
 class ProfMaterias(APIView):
     """
     @brief Endpoint para obtener las materias asociadas a un profesor autenticado.
-
-    Este endpoint permite a los profesores autenticados obtener las materias que están asociadas a su cédula.
-    La consulta se realiza sobre la tabla de materias asociadas al profesor, utilizando su cédula como identificador.
-
-    @note: Este endpoint requiere que el usuario esté autenticado.
     """
-
-    permission_classes = [IsAuthenticated]  # Requiere autenticación
+    permission_classes = [IsAuthenticated]
 
     def get(self, request):
         """
         @brief Obtener las materias del profesor autenticado.
-
-        Este método obtiene todas las materias asociadas al profesor autenticado. Se utiliza la cédula del
-        usuario autenticado para realizar la búsqueda en la base de datos y obtener las materias asociadas
-        a ese profesor. Si el profesor es encontrado y tiene materias asociadas, los datos serán devueltos en
-        formato serializado.
-
-        @param request Objeto de solicitud HTTP que contiene la información del usuario autenticado.
-
-        @return Response Respuesta con las materias asociadas al profesor, o un mensaje de error si no se encuentran.
         """
-
-        # Obtener la cédula del usuario autenticado
-        user = (
-            request.user
-        )  # Esto asume que request.user está vinculado con Datos_basicos
-
+        user = request.user
         try:
-            # Imprimir el tipo de objeto del usuario (para depuración)
-            print(type(user))
-            # Serializar los datos del usuario utilizando el serializador de login
             serializedUser = DatosLoginSerializer(user).data
-
             profesor = profesores.objects.select_related(
                 "cod_maestria_prof", "ci_profesor"
             ).get(ci_profesor=serializedUser["cedula_usuario"])
-            # Buscar las materias asociadas al profesor usando la cédula
+            
             materias = materias_pensum.objects.filter(
                 cod_maestria=profesor.cod_maestria_prof
             )
-            # Serializar los datos de las materias
             serializer = MateriasPensumSerializer(materias, many=True)
-            print(type(serializer.data))
             return Response(serializer.data, status=200)
-
         except materias_pensum.DoesNotExist:
-            # Si no se encuentran materias asociadas, devolver un mensaje de error
             return Response({"error": "Usuario no encontrado"}, status=404)
 
-
-import json
-
-
-@csrf_exempt
-@require_http_methods(["POST"])
-def admin_login(request):
+class DatosMaestriaViewSet(viewsets.ModelViewSet):
     """
-    @brief Autenticación de usuario admin utilizando nombre de usuario y contraseña.
-
-    Este endpoint permite que los administradores se autentiquen usando su nombre de usuario (cédula)
-    y contraseña. Si las credenciales son correctas, se genera un par de tokens JWT (access y refresh).
-
-    @param request Objeto HTTP Request que contiene las credenciales del usuario (nombre de usuario y contraseña) en el cuerpo de la solicitud.
-
-    @return JsonResponse Objeto HTTP Response con el siguiente comportamiento:
-    - Si las credenciales son correctas, se retornan los tokens `access` y `refresh` con un código de estado 200 (OK).
-    - Si las credenciales son incorrectas (contraseña inválida), se retorna un error con un código de estado 401 (Unauthorized).
-    - Si el usuario no existe o no es un administrador, se retorna un error con un código de estado 401 (Unauthorized).
+    @brief ViewSet para gestionar datos de maestrías.
     """
-    import json
-
-    data = json.loads(
-        request.body
-    )  # Obtiene los datos del cuerpo de la solicitud (JSON)
-    cedula = data.get("username")  # Obtiene el nombre de usuario (cedula) del JSON
-    password = data.get("password")  # Obtiene la contraseña del JSON
-
-    try:
-        # Intenta obtener el usuario con la cédula y tipo de usuario 1 (administrador)
-        user = datos_login.objects.get(cedula_usuario=cedula, tipo_usuario=1)
-        if user.contraseña_usuario == password:  # Verifica si la contraseña es correcta
-            # Si la contraseña es correcta, genera los tokens JWT
-            refresh = RefreshToken.for_user(user)
-            return JsonResponse(
-                {
-                    "access": str(refresh.access_token),  # Token de acceso
-                    "refresh": str(refresh),  # Token de refresco
-                },
-                status=200,
-            )
-        else:
-            # Si la contraseña es incorrecta, retorna un error 401
-            return JsonResponse({"error": "Contraseña invalida"}, status=401)
-    except datos_login.DoesNotExist:
-        # Si el usuario no existe o no es un administrador, retorna un error 401
-        return JsonResponse(
-            {"error": "Usuario no encontrado o no es admin"}, status=401
-        )
-
-
-@csrf_exempt
-@require_http_methods(["POST"])
-def login_profesor(request: Request):
-    """
-    @brief Endpoint para el login de un profesor.
-
-    Este endpoint permite que un profesor inicie sesión proporcionando su cédula y contraseña.
-    Si las credenciales son correctas, se generan tokens de acceso y refresco utilizando el paquete JWT.
-    Si las credenciales son incorrectas o el usuario no es encontrado, se devuelve un mensaje de error.
-
-    @param request Objeto de la solicitud HTTP que debe contener las credenciales del usuario:
-    - username: Cédula del profesor.
-    - password: Contraseña del profesor.
-
-    @return JsonResponse Respuesta en formato JSON con los tokens de acceso y refresco si las credenciales son correctas.
-    En caso de error, devuelve un mensaje con el error correspondiente.
-    """
-
-    try:
-        print("klk")
-        data = json.loads(request.body)  # Cargar los datos recibidos en formato JSON
-        cedula = data.get("username")  # Obtener la cédula del profesor
-        password = data.get("password")  # Obtener la contraseña del profesor
-
-        # Buscar el usuario en la base de datos, asegurándose que sea un profesor (tipo_usuario=3)
-        user = datos_login.objects.get(cedula_usuario=cedula, tipo_usuario=3)
-
-        # Verificar si la contraseña proporcionada es correcta
-        if user.contraseña_usuario == password:
-            # Si la contraseña es correcta, generar tokens de acceso y refresco
-            refresh = RefreshToken.for_user(user)
-            return JsonResponse(
-                {
-                    "access": str(refresh.access_token),  # Token de acceso
-                    "refresh": str(refresh),  # Token de refresco
-                },
-                status=200,
-            )
-        else:
-            # Si la contraseña es incorrecta, devolver un error de autenticación
-            return JsonResponse({"error": "Contraseña invalida"}, status=401)
-
-    except Exception as e:
-
-        # TODO: hacer funcion que se implemente en todos los casos de error comunes como por ejemplo mostrar el traceback en consola.
-        # Log the error with traceback to stderr
-        traceback.print_exc(file=sys.stderr)
-
-        if isinstance(e, datos_login.DoesNotExist):
-            # Si no se encuentra el usuario o no es un profesor, devolver un error
-            return JsonResponse(
-                {"error": "Usuario no encontrado o no es profesor"}, status=401
-            )
-        return JsonResponse(
-            {"error": str(e), "traceback": traceback.format_exc()}, status=500
-        )
-
-
-@csrf_exempt
-@require_http_methods(["POST"])
-def login_estudiante(request: Request):
-    try:
-        data = json.loads(request.body)  # Cargar los datos recibidos en formato JSON
-        cedula = data.get("username")  # Obtener la cédula del profesor
-        password = data.get("password")  # Obtener la contraseña del profesor
-
-        # Buscar el usuario en la base de datos, asegurándose que sea un profesor (tipo_usuario=3)
-        user = datos_login.objects.get(cedula_usuario=cedula, tipo_usuario=2)
-
-        # Verificar si la contraseña proporcionada es correcta
-        if user.contraseña_usuario == password:
-            # Si la contraseña es correcta, generar tokens de acceso y refresco
-            refresh = RefreshToken.for_user(user)
-            return JsonResponse(
-                {
-                    "access": str(refresh.access_token),  # Token de acceso
-                    "refresh": str(refresh),  # Token de refresco
-                },
-                status=200,
-            )
-        else:
-            # Si la contraseña es incorrecta, devolver un error de autenticación
-            return JsonResponse({"error": "Contraseña invalida"}, status=401)
-
-    except Exception as e:
-
-        # TODO: hacer funcion que se implemente en todos los casos de error comunes como por ejemplo mostrar el traceback en consola.
-        # Log the error with traceback to stderr
-        traceback.print_exc(file=sys.stderr)
-
-        if isinstance(e, datos_login.DoesNotExist):
-            return JsonResponse(
-                {"error": "Usuario no encontrado o no es estudiante"}, status=401
-            )
-        return JsonResponse(
-            {"error": str(e), "traceback": traceback.format_exc()}, status=500
-        )
-
-
-@api_view(["POST"])
-def generar_codigo_cohorte(request):
-    """
-    @brief Genera un código único para una nueva cohorte y la registra en la base de datos.
-    @param request Objeto HTTP Request con los datos necesarios para crear la cohorte:
-        - codigo_cohorte: Código inicial de la cohorte.
-        - fecha_inicio: Fecha de inicio de la cohorte en formato 'YYYY-MM-DD'.
-        - fecha_fin: Fecha de fin de la cohorte en formato 'YYYY-MM-DD'.
-        - sede_cohorte: Sede de la cohorte.
-        - tipo_maestria: Tipo de maestría asociada a la cohorte.
-    @return Response con el código generado si el registro fue exitoso, o JsonResponse con un error en caso contrario.
-    """
-    if request.method == "POST":
-        codigo_cohorte = request.data.get("codigo_cohorte")
-        fecha_inicio = request.data.get("fecha_inicio")
-        fecha_fin = request.data.get("fecha_fin")
-        sede_cohorte = request.data.get("sede_cohorte")
-        tipo_maestria = request.data.get("tipo_maestria")
-
-        # Función para generar un nuevo código
-        def generate_new_code(code):
-            """
-            @brief Genera un nuevo código único basado en el código proporcionado.
-            @param code Código inicial de la cohorte.
-            @return Nuevo código generado.
-            """
-            prefix = code[
-                :-6
-            ]  # Toma todo excepto los últimos 6 caracteres (ej. FIIA-2024 -> FII)
-            year = code[-4:]  # Toma los últimos 4 caracteres (el año)
-            current_letter = code[-6]  # Toma la letra actual (A, B, C, etc.)
-            next_letter = chr(ord(current_letter) + 1)  # Genera la siguiente letra
-            return f"{prefix}{next_letter}-{year}"
-
-        # Verifica si el código de cohorte ya existe
-        while Cohorte.objects.filter(codigo_cohorte=codigo_cohorte).exists():
-            codigo_cohorte = generate_new_code(codigo_cohorte)
-
-        # Crea el nuevo cohorte
-        try:
-            cohorte = Cohorte.objects.create(
-                codigo_cohorte=codigo_cohorte,
-                fecha_inicio=datetime.datetime.strptime(fecha_inicio, "%Y-%m-%d"),
-                fecha_fin=datetime.datetime.strptime(fecha_fin, "%Y-%m-%d"),
-                sede_cohorte=sede_cohorte,
-                tipo_maestria=tipo_maestria,
-            )
-            serializer = CohorteSerializer(cohorte)
-            return Response({"codigo_cohorte": codigo_cohorte}, status=201)
-
-        except Exception as e:
-            return JsonResponse({"error": str(e)}, status=400)
-
-
-@api_view(["POST"])
-def verificar_codigo_cohorte(request):
-    """
-    @brief Verifica si un código de cohorte ya existe en la base de datos y genera uno nuevo si es necesario.
-    @param request Objeto HTTP Request con los datos necesarios:
-        - codigo_cohorte: Código de cohorte a verificar.
-    @return JsonResponse indicando si el código ya existe y, en caso positivo, sugiere un nuevo código.
-    """
-    if request.method == "POST":
-        codigo_cohorte = request.data.get("codigo_cohorte")
-
-        if not codigo_cohorte:
-            return JsonResponse(
-                {"error": "Código de cohorte no proporcionado"}, status=400
-            )
-
-        # Función para generar un nuevo código
-        def generate_new_code(code):
-            """
-            @brief Genera un nuevo código único basado en el código proporcionado.
-            @param code Código inicial de la cohorte.
-            @return Nuevo código generado.
-            """
-            prefix = code[
-                :-6
-            ]  # Toma todo excepto los últimos 6 caracteres (ej. FIIA-2024 -> FII)
-            year = code[-4:]  # Toma los últimos 4 caracteres (el año)
-            current_letter = code[-6]  # Toma la letra actual (A, B, C, etc.)
-            next_letter = chr(ord(current_letter) + 1)  # Genera la siguiente letra
-            return f"{prefix}{next_letter}-{year}"
-
-        # Verifica si el código de cohorte ya existe
-        if Cohorte.objects.filter(codigo_cohorte=codigo_cohorte).exists():
-            new_code = generate_new_code(codigo_cohorte)
-            return JsonResponse({"exists": True, "new_code": new_code})
-        else:
-            return JsonResponse({"exists": False})
-
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from .models import Datos_basicos
-from .serializers import DatosBasicosSerializer
+    serializer_class = DatosMaestriaSerializer
+    queryset = datos_maestria.objects.all()
+    permission_classes = [IsPublic]
 
 class UsuariosPorTipoAPIView(APIView):
     """
     @brief API View que devuelve usuarios filtrados por tipo.
-    
-    Esta vista recibe un parámetro 'tipo_usuario' y devuelve
-    una lista de usuarios que coinciden con ese tipo en formato JSON.
     """
-    
     def get(self, request, format=None):
         """
         @brief Maneja las solicitudes GET para obtener usuarios por tipo.
-        @param request La solicitud HTTP recibida.
-        @param format El formato de la respuesta (por defecto None).
-        @return Response con la lista de usuarios serializada o un mensaje de error.
         """
         tipo_usuario = request.query_params.get('tipo_usuario')
         
@@ -1237,19 +528,174 @@ class UsuariosPorTipoAPIView(APIView):
         serializer = DatosBasicosSerializer(usuarios, many=True)
         return Response(serializer.data)
 
-from django.http import JsonResponse
-from django.views.decorators.http import require_http_methods
-from django.views.decorators.csrf import csrf_exempt
-from .models import Datos_basicos, datos_login
-import json
+# Funciones para autenticación
+@csrf_exempt
+@require_http_methods(["POST"])
+def admin_login(request):
+    """
+    @brief Autenticación de usuario admin utilizando nombre de usuario y contraseña.
+    """
+    data = json.loads(request.body)
+    cedula = data.get("username")
+    password = data.get("password")
 
+    try:
+        user = datos_login.objects.get(cedula_usuario=cedula, tipo_usuario=1)
+        if user.contraseña_usuario == password:
+            refresh = RefreshToken.for_user(user)
+            return JsonResponse(
+                {
+                    "access": str(refresh.access_token),
+                    "refresh": str(refresh),
+                },
+                status=200,
+            )
+        else:
+            return JsonResponse({"error": "Contraseña invalida"}, status=401)
+    except datos_login.DoesNotExist:
+        return JsonResponse(
+            {"error": "Usuario no encontrado o no es admin"}, status=401
+        )
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def login_profesor(request):
+    """
+    @brief Endpoint para el login de un profesor.
+    """
+    try:
+        data = json.loads(request.body)
+        cedula = data.get("username")
+        password = data.get("password")
+
+        user = datos_login.objects.get(cedula_usuario=cedula, tipo_usuario=3)
+        if user.contraseña_usuario == password:
+            refresh = RefreshToken.for_user(user)
+            return JsonResponse(
+                {
+                    "access": str(refresh.access_token),
+                    "refresh": str(refresh),
+                },
+                status=200,
+            )
+        else:
+            return JsonResponse({"error": "Contraseña invalida"}, status=401)
+    except Exception as e:
+        traceback.print_exc(file=sys.stderr)
+        if isinstance(e, datos_login.DoesNotExist):
+            return JsonResponse(
+                {"error": "Usuario no encontrado o no es profesor"}, status=401
+            )
+        return JsonResponse(
+            {"error": str(e), "traceback": traceback.format_exc()}, status=500
+        )
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def login_estudiante(request):
+    """
+    @brief Endpoint para el login de un estudiante.
+    """
+    try:
+        data = json.loads(request.body)
+        cedula = data.get("username")
+        password = data.get("password")
+
+        user = datos_login.objects.get(cedula_usuario=cedula, tipo_usuario=2)
+        if user.contraseña_usuario == password:
+            refresh = RefreshToken.for_user(user)
+            return JsonResponse(
+                {
+                    "access": str(refresh.access_token),
+                    "refresh": str(refresh),
+                },
+                status=200,
+            )
+        else:
+            return JsonResponse({"error": "Contraseña invalida"}, status=401)
+    except Exception as e:
+        traceback.print_exc(file=sys.stderr)
+        if isinstance(e, datos_login.DoesNotExist):
+            return JsonResponse(
+                {"error": "Usuario no encontrado o no es estudiante"}, status=401
+            )
+        return JsonResponse(
+            {"error": str(e), "traceback": traceback.format_exc()}, status=500
+        )
+
+# Funciones para gestión de cohortes
+@api_view(["POST"])
+def generar_codigo_cohorte(request):
+    """
+    @brief Genera un código único para una nueva cohorte y la registra en la base de datos.
+    """
+    if request.method == "POST":
+        codigo_cohorte = request.data.get("codigo_cohorte")
+        fecha_inicio = request.data.get("fecha_inicio")
+        fecha_fin = request.data.get("fecha_fin")
+        sede_cohorte = request.data.get("sede_cohorte")
+        tipo_maestria = request.data.get("tipo_maestria")
+
+        # Función para generar un nuevo código
+        def generate_new_code(code):
+            prefix = code[:-6]
+            year = code[-4:]
+            current_letter = code[-6]
+            next_letter = chr(ord(current_letter) + 1)
+            return f"{prefix}{next_letter}-{year}"
+
+        # Verifica si el código de cohorte ya existe
+        while Cohorte.objects.filter(codigo_cohorte=codigo_cohorte).exists():
+            codigo_cohorte = generate_new_code(codigo_cohorte)
+
+        # Crea el nuevo cohorte
+        try:
+            cohorte = Cohorte.objects.create(
+                codigo_cohorte=codigo_cohorte,
+                fecha_inicio=datetime.datetime.strptime(fecha_inicio, "%Y-%m-%d"),
+                fecha_fin=datetime.datetime.strptime(fecha_fin, "%Y-%m-%d"),
+                sede_cohorte=sede_cohorte,
+                tipo_maestria=tipo_maestria,
+            )
+            serializer = CohorteSerializer(cohorte)
+            return Response({"codigo_cohorte": codigo_cohorte}, status=201)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=400)
+
+@api_view(["POST"])
+def verificar_codigo_cohorte(request):
+    """
+    @brief Verifica si un código de cohorte ya existe en la base de datos y genera uno nuevo si es necesario.
+    """
+    if request.method == "POST":
+        codigo_cohorte = request.data.get("codigo_cohorte")
+
+        if not codigo_cohorte:
+            return JsonResponse(
+                {"error": "Código de cohorte no proporcionado"}, status=400
+            )
+
+        # Función para generar un nuevo código
+        def generate_new_code(code):
+            prefix = code[:-6]
+            year = code[-4:]
+            current_letter = code[-6]
+            next_letter = chr(ord(current_letter) + 1)
+            return f"{prefix}{next_letter}-{year}"
+
+        # Verifica si el código de cohorte ya existe
+        if Cohorte.objects.filter(codigo_cohorte=codigo_cohorte).exists():
+            new_code = generate_new_code(codigo_cohorte)
+            return JsonResponse({"exists": True, "new_code": new_code})
+        else:
+            return JsonResponse({"exists": False})
+
+# Funciones para eliminar usuarios y actualizar estados
 @csrf_exempt
 @require_http_methods(["POST"])
 def eliminar_usuarios(request):
     """
     @brief Elimina usuarios seleccionados y sus datos de login asociados, excepto el usuario con cédula "V-27943668".
-    @param request La solicitud HTTP POST recibida.
-    @return JsonResponse con el resultado de la operación o un mensaje de error.
     """
     try:
         data = json.loads(request.body)
@@ -1263,7 +709,6 @@ def eliminar_usuarios(request):
         user_ids = [uid for uid in user_ids if uid != protected_user_id]
         
         login_count = datos_login.objects.filter(cedula_usuario__cedula__in=user_ids).count()
-        
         deleted_count = Datos_basicos.objects.filter(cedula__in=user_ids).exclude(cedula=protected_user_id).delete()[0]
         
         message = f'Se eliminó la lista de usuarios seleccionados'
@@ -1282,8 +727,6 @@ def eliminar_usuarios(request):
 def listar_usuarios(request):
     """
     @brief Lista usuarios filtrados por tipo de usuario.
-    @param request La solicitud HTTP GET recibida.
-    @return JsonResponse con la lista de usuarios o un mensaje de error.
     """
     tipo_usuario = request.GET.get('tipo_usuario')
     
@@ -1291,23 +734,13 @@ def listar_usuarios(request):
         return JsonResponse({'error': 'Se requiere el parámetro tipo_usuario'}, status=400)
     
     usuarios = Datos_basicos.objects.filter(tipo_usuario=tipo_usuario).values('cedula', 'nombre', 'apellido', 'correo')
-    
     return JsonResponse(list(usuarios), safe=False)
-
-import json
-import traceback
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
-from .models import tabla_pagos
 
 @csrf_exempt
 @require_http_methods(["POST"])
 def actualizar_estado_pagos(request):
     """
     @brief Actualiza el estado de los pagos proporcionados.
-    @param request La solicitud HTTP POST recibida.
-    @return JsonResponse con el resultado de la operación o un mensaje de error.
     """
     try:
         data = json.loads(request.body)
@@ -1333,21 +766,16 @@ def actualizar_estado_pagos(request):
             'message': f'Se actualizaron {updated_count} pagos exitosamente',
             'updated_count': updated_count
         })
-
     except Exception as e:
         print("Error en actualizar_estado_pagos:", traceback.format_exc())
         return JsonResponse({'error': str(e)}, status=500)
-    
-from django.http import JsonResponse
-from django.views.decorators.http import require_http_methods
-from django.views.decorators.csrf import csrf_exempt
-from .models import tabla_solicitudes
-import json
-from django.utils import timezone
 
 @csrf_exempt
 @require_http_methods(["POST"])
 def actualizar_estado_solicitudes(request):
+    """
+    @brief Actualiza el estado de las solicitudes proporcionadas.
+    """
     try:
         data = json.loads(request.body)
         solicitudes = data.get('solicitudes', [])
@@ -1363,11 +791,10 @@ def actualizar_estado_solicitudes(request):
                 try:
                     solicitud_obj = tabla_solicitudes.objects.get(cod_solicitudes=cod_solicitudes)
                     solicitud_obj.status_solicitud = nuevo_estado
-                    solicitud_obj.fecha_solicitud = timezone.now()  # Update the date to current time
+                    solicitud_obj.fecha_solicitud = timezone.now()
                     solicitud_obj.save()
                     updated_count += 1
                 except tabla_solicitudes.DoesNotExist:
-                    # If the solicitud doesn't exist, we skip it and continue with the next one
                     continue
         
         return JsonResponse({
@@ -1377,169 +804,3 @@ def actualizar_estado_solicitudes(request):
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
-
-
-# controlador htttp: AsignarProfesorMateriaView
-# controlador htttp: MateriasPensumAPIView
-# controlador htttp: ProfesoresAPIView
-# controlador htttp: CohorteListAPIView
-# controlador htttp: PlanificacionProfesorAPIView
-# controlador htttp: ListadoEstudiantes
-# controlador htttp: SolicitudesListAPIView
-# controlador htttp: PagosListAPIView
-# controlador htttp: DatosBasicosCreateView
-# controlador htttp: BuscarCedulaEstView
-# controlador htttp: AlmacenarDatosEstView
-# controlador htttp: UserInfoView
-# controlador htttp: ProfMaterias
-# controlador htttp: DatosMaestriaViewSet
-# controlador htttp: admin_login
-# controlador htttp: login_profesor
-# controlador htttp: login_estudiante
-# controlador htttp: generar_codigo_cohorte
-# controlador htttp: verificar_codigo_cohorte
-
-# Modelo Active Record: Datos_basicos
-# Modelo Active Record: datos_maestria
-# Modelo Active Record: estudiante_datos
-# Modelo Active Record: Cohorte
-# Modelo Active Record: roles
-# Modelo Active Record: datos_login
-# Modelo Active Record: materias_pensum
-# Modelo Active Record: AsignarProfesorMateria
-# Modelo Active Record: PlanificacionProfesor
-# Modelo Active Record: listado_estudiantes
-# Modelo Active Record: profesores
-# Modelo Active Record: tabla_pagos
-# Modelo Active Record: tabla_solicitudes
-
-# 73 atributos
-
-##Datos_basicos
-
-# - cedula
-# - nombre
-# - apellido
-# - tipo_usuario
-# - contraseña
-# - correo
-
-##datos_maestria
-
-# - cod_maestria
-# - nombre_maestria
-
-##estudiante_datos
-
-# - cedula_estudiante
-# - cod_maestria
-# - nombre_est
-# - apellido_est
-# - año_ingreso
-# - estado_estudiante
-# - carrera
-
-##Cohorte
-
-# - codigo_cohorte
-# - fecha_inicio
-# - fecha_fin
-# - sede_cohorte
-# - tipo_maestria
-
-##roles
-
-# - codigo_rol
-# - nombre_rol
-
-##datos_login
-
-# - cedula_usuario
-# - contraseña_usuario
-# - tipo_usuario
-
-##materias_pensum
-
-# - cod_materia
-# - cod_maestria
-# - nombre_materia
-
-##AsignarProfesorMateria
-
-# - cod_materia
-# - nom_materia
-# - cedula_profesor
-# - nombre_profesor
-# - apellido_profesor
-# - fecha_inicio
-# - fecha_fin
-# - codigo_cohorte
-
-##PlanificacionProfesor
-
-# - codplanificacion
-# - actividades_planificacion
-# - actividades_porcentaje
-# - cod_materia
-# - codigo_cohorte
-# - cedula_profesor
-# - nombre_materia
-
-##listado_estudiantes
-
-# - cedula_estudiante
-# - nombre
-# - apellido
-# - cod_materia
-# - codigo_cohorte
-# - nombre_materia
-# - profesor_ci
-# - nom_profesor_materia
-# - ape_profesor_materia
-# - nota
-# - codplanificacion
-
-##profesores
-
-# - ci_profesor
-# - nom_profesor_materia
-# - ape_profesor_materia
-# - cod_maestria_prof
-
-##tabla_pagos
-
-# - cedula_responsable
-# - numero_referencia
-# - banco_pago
-# - fecha_pago
-# - monto_pago
-# - nombre_estudiante
-# - apellido_estudiante
-# - estado_pago
-
-##tabla_solicitudes
-
-# - cedula_responsable
-# - cod_solicitudes
-# - nombre_estudiante
-# - apellido_estudiante
-# - fecha_solicitud
-# - status_solicitud
-# - tipo_solicitud
-
-
-# PlanificacionProfesorSerializer
-# DatosBasicosSerializer
-# UserSerializer
-# DatosBasicosSerializer
-# DatosMaestriaSerializer
-# EstudianteDatosSerializer
-# CohorteSerializer
-# RolesSerializer
-# MateriasPensumSerializer
-# AsignarProfesorMateriaSerializer
-# DatosLoginSerializer
-# ListadoEstudiantesSerializer
-# ProfesoresSerializer
-# TablaPagosSerializer
-# TablaSolicitudesSerializer
