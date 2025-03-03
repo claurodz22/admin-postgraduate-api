@@ -1247,7 +1247,7 @@ import json
 @require_http_methods(["POST"])
 def eliminar_usuarios(request):
     """
-    @brief Elimina usuarios seleccionados y sus datos de login asociados.
+    @brief Elimina usuarios seleccionados y sus datos de login asociados, excepto el usuario con cédula "V-27943668".
     @param request La solicitud HTTP POST recibida.
     @return JsonResponse con el resultado de la operación o un mensaje de error.
     """
@@ -1258,12 +1258,20 @@ def eliminar_usuarios(request):
         if not user_ids:
             return JsonResponse({'error': 'No se proporcionaron IDs de usuario'}, status=400)
         
+        # Excluir el usuario con cédula "V-27943668"
+        protected_user_id = "V-27943668"
+        user_ids = [uid for uid in user_ids if uid != protected_user_id]
+        
         login_count = datos_login.objects.filter(cedula_usuario__cedula__in=user_ids).count()
         
-        deleted_count = Datos_basicos.objects.filter(cedula__in=user_ids).delete()[0]
+        deleted_count = Datos_basicos.objects.filter(cedula__in=user_ids).exclude(cedula=protected_user_id).delete()[0]
+        
+        message = f'Se eliminó la lista de usuarios seleccionados'
+        if protected_user_id in data.get('user_ids', []):
+            message += f', excepto el usuario con cédula {protected_user_id}'
         
         return JsonResponse({
-            'message': f'Se elimino la lista de usuarios seleccionados',
+            'message': message,
             'deleted_users_count': deleted_count,
             'deleted_login_count': login_count
         })
@@ -1328,6 +1336,45 @@ def actualizar_estado_pagos(request):
 
     except Exception as e:
         print("Error en actualizar_estado_pagos:", traceback.format_exc())
+        return JsonResponse({'error': str(e)}, status=500)
+    
+from django.http import JsonResponse
+from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import csrf_exempt
+from .models import tabla_solicitudes
+import json
+from django.utils import timezone
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def actualizar_estado_solicitudes(request):
+    try:
+        data = json.loads(request.body)
+        solicitudes = data.get('solicitudes', [])
+        
+        if not solicitudes:
+            return JsonResponse({'error': 'No se proporcionaron solicitudes para actualizar'}, status=400)
+        
+        updated_count = 0
+        for solicitud in solicitudes:
+            cod_solicitudes = solicitud.get('cod_solicitudes')
+            nuevo_estado = solicitud.get('nuevoEstado')
+            if cod_solicitudes and nuevo_estado:
+                try:
+                    solicitud_obj = tabla_solicitudes.objects.get(cod_solicitudes=cod_solicitudes)
+                    solicitud_obj.status_solicitud = nuevo_estado
+                    solicitud_obj.fecha_solicitud = timezone.now()  # Update the date to current time
+                    solicitud_obj.save()
+                    updated_count += 1
+                except tabla_solicitudes.DoesNotExist:
+                    # If the solicitud doesn't exist, we skip it and continue with the next one
+                    continue
+        
+        return JsonResponse({
+            'message': f'Se actualizaron {updated_count} solicitudes exitosamente',
+            'updated_count': updated_count
+        })
+    except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
 
 

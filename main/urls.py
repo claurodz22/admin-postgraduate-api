@@ -56,6 +56,12 @@ router.register("maestrias", DatosMaestriaViewSet)
 #
 # @example La ruta 'http://127.0.0.1:8000/api/pagos/' accede a los pagos.
 urlpatterns = [
+
+    path(
+        'actualizar-solicitudes/' , 
+        actualizar_estado_solicitudes, 
+        name='actualizar-solicitudes'
+    ),
     
     # @route /actualizar-pago/
     # @brief Ruta para actualizar el estado de pago de los usuarios.
