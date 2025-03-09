@@ -458,15 +458,41 @@ class UserInfoView(APIView):
     def get(self, request):
         """
         @brief Obtener los datos del usuario autenticado.
+        Si el tipo de usuario es 2, también obtiene los datos de estudiante.
         """
         user = request.user
         try:
-            serializedUser = DatosLoginSerializer(user).data
-            datos_usuario = Datos_basicos.objects.get(
-                cedula=serializedUser["cedula_usuario"]
-            )
-            serializer = DatosBasicosSerializer(datos_usuario)
-            return Response(serializer.data, status=200)
+            serialized_user = DatosLoginSerializer(user).data
+            cedula = serialized_user["cedula_usuario"]
+            datos_usuario = Datos_basicos.objects.get(cedula=cedula)
+            
+            # obtener datos basicos 
+            user_data = DatosBasicosSerializer(datos_usuario).data
+            
+            # verifica si es tipo_usuario = 2 (q es estudiante)
+            if datos_usuario.tipo_usuario == 2:
+                try:
+                    # obtiene datos del estudiante
+                    estudiante = estudiante_datos.objects.get(cedula_estudiante=cedula)
+                    estudiante_serializer = EstudianteDatosSerializer(estudiante)
+                    
+                    # combina datos de ambas tablas
+                    response_data = {
+                        **user_data,
+                        "datos_estudiante": estudiante_serializer.data
+                    }
+                    return Response(response_data, status=200)
+                except estudiante_datos.DoesNotExist:
+                    # si no existe
+                    return Response({
+                        **user_data,
+                        "datos_estudiante": None,
+                        "error": "Datos de estudiante no encontrados"
+                    }, status=200)
+            
+            # si no existe
+            return Response(user_data, status=200)
+            
         except Datos_basicos.DoesNotExist:
             return Response({"error": "Usuario no encontrado"}, status=404)
 
